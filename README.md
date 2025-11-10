@@ -26,4 +26,6 @@ Each member will focus on implementing at least one class of their own, and runn
   - [Quantum Natural Gradient](https://arxiv.org/abs/1909.02108)
   - [A variational eigenvalue solver on a quantum processor](https://arxiv.org/abs/1304.3061)
   - [An Overview of Variational Quantum Algorithms](https://www.youtube.com/watch?v=SU4FG2eT1rI&t=72s)
+  - [Qiskit Summer School 2021 on VQE's](https://github.com/Qiskit/platypus/blob/main/notebooks/summer-school/2021/resources/lab-notebooks/lab-2.ipynb)
+  - [A Comparative Analysis on of Classical and Quantum Optimization Methods](https://arxiv.org/abs/2412.19176)
 
