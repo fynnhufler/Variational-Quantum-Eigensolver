@@ -1,5 +1,5 @@
 import numpy as np
-
+from abc import ABC, abstractmethod
 class BaseOptimizer():
     def __init__(
         self,
