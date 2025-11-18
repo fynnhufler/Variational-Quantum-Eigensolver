@@ -92,13 +92,15 @@ class BaseOptimizer(ABC):
         for iteration in range(self.max_iter):
             # Historie speichern
             self._store_iteration(params)
-            
+
             # Gradient berechnen und Parameter updaten
             gradient = self.compute_gradient(params)
             new_params = self._update(params, gradient, iteration)
+
+            E_old, E_new = self.compute_energy(params), self.compute_energy(new_params)
             
             # Konvergenzkriterium (optional)
-            if np.abs(new_params - params) < self.eps:
+            if np.abs(E_new - E_old) < self.eps:
                 params = new_params
                 break
             
