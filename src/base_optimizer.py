@@ -96,9 +96,11 @@ class BaseOptimizer(ABC):
             # Gradient berechnen und Parameter updaten
             gradient = self.compute_gradient(params)
             new_params = self._update(params, gradient, iteration)
+
+            E_old, E_new = self.compute_energy(params), self.compute_energy(new_params)
             
             # Konvergenzkriterium (optional)
-            if np.abs(new_params - params) < self.eps:
+            if np.abs(E_new - E_old) < self.eps:
                 params = new_params
                 break
             
@@ -106,7 +108,6 @@ class BaseOptimizer(ABC):
         
         # Finale Werte speichern
         self._store_iteration(params)
-        
         final_energy = self.compute_energy(params)
         return params, final_energy
     
@@ -165,12 +166,14 @@ class FiniteDifferenceGradient:
     
     def compute_gradient(self, params: Any) -> Any:
         """Numerischer Gradient: (E(θ+ε) - E(θ)) / ε"""
-        energy_current = self.compute_energy(params)
-        params_shifted = params + self.gradient_eps
-        energy_shifted = self.compute_energy(params_shifted)
-        return (energy_shifted - energy_current) / self.gradient_eps
-
-
+        gradient=np.zeros(params.size, dtype=float)
+        for i in range(params.size):
+            energy_current = self.compute_energy(params)
+            params_shifted=params.copy()
+            params_shifted[i]=params[i]+self.gradient_eps
+            energy_shifted = self.compute_energy(params_shifted)
+            gradient[i]=(energy_shifted-energy_current)/self.gradient_eps
+        return gradient
 # ============================================================================
 # STEP SIZE STRATEGIES
 # ============================================================================
@@ -205,7 +208,7 @@ class OneQubitSystem(BaseOptimizer):
     Abstrakte Basisklasse für Ein-Qubit-Systeme.
     Definiert gemeinsame Struktur für numpy und Qiskit Implementierungen.
     """
-    def __init__(self, initial_theta: float = np.pi/2, **kwargs):
+    def __init__(self, initial_theta: np.ndarray = np.array([np.pi/2]), **kwargs):
         super().__init__(**kwargs)
         self.theta = initial_theta
         self._setup_hamiltonian()
@@ -222,16 +225,16 @@ class OneQubitSystem(BaseOptimizer):
         pass
     
     @abstractmethod
-    def _apply_unitary(self, theta: float) -> Any:
+    def _apply_unitary(self, theta) -> Any:
         """Wendet die parametrisierte Unitäre U(θ) auf den Zustand an"""
         pass
     
-    def get_state(self, theta: float) -> Any:
+    def get_state(self, theta) -> Any:
         """Alias für _apply_unitary für konsistente API"""
         return self._apply_unitary(theta)
     
     @abstractmethod
-    def compute_energy(self, theta: float) -> float:
+    def compute_energy(self, theta) -> float:
         """Berechnet ⟨ψ(θ)|H|ψ(θ)⟩"""
         pass
 
@@ -250,14 +253,14 @@ class OneQubitSystemNumpy(OneQubitSystem):
     def _setup_initial_state(self):
         self.initial_state = np.array([1, 0], dtype=complex)
     
-    def _apply_unitary(self, theta: float) -> np.ndarray:
+    def _apply_unitary(self, theta) -> np.ndarray:
         """U(θ) = exp(-iθY/2)"""
-        c = np.cos(theta / 2)
-        s = np.sin(theta / 2)
+        c = np.cos(theta[0] / 2)
+        s = np.sin(theta[0] / 2)
         U = np.array([[c, s], [-s, c]], dtype=complex)
         return U @ self.initial_state
     
-    def compute_energy(self, theta: float) -> float:
+    def compute_energy(self, theta) -> float:
         """E(θ) = ⟨ψ(θ)|H|ψ(θ)⟩"""
         state = self._apply_unitary(theta)
         return np.real(np.vdot(state, self.H @ state))
@@ -277,18 +280,68 @@ class OneQubitSystemQiskit(OneQubitSystem):
         qc = QuantumCircuit(1)
         self.initial_state = Statevector.from_instruction(qc)
     
-    def _apply_unitary(self, theta: float) -> Statevector:
+    def _apply_unitary(self, theta) -> Statevector:
         """U(θ) = exp(-iθY/2)"""
-        c = np.cos(theta / 2)
-        s = np.sin(theta / 2)
+        c = np.cos(theta[0] / 2)
+        s = np.sin(theta[0] / 2)
         U_matrix = np.array([[c, s], [-s, c]], dtype=complex)
         U = Operator(U_matrix)
         return self.initial_state.evolve(U, qargs=[0])
     
-    def compute_energy(self, theta: float) -> float:
+    def compute_energy(self, theta) -> float:
         """E(θ) = ⟨ψ(θ)|H|ψ(θ)⟩"""
         state = self._apply_unitary(theta)
         return np.real(np.vdot(state.data, self.H.data @ state.data))
+    
+
+
+class n_dim_ising_triv_ansatz(BaseOptimizer):
+    def __init__(self,J,h,**kwargs):
+        super().__init__(**kwargs)
+        self.dim=J.shape[0]
+        self.Hamilton=self.Ham(J,h)
+        self.Hamilton=Operator(self.Hamilton)
+        self.state=Statevector.from_instruction(QuantumCircuit(self.dim))
+        self.theta=np.zeros(self.dim)
+        for i in range(self.dim):
+            #self.theta[i]=0
+            self.theta[i]=np.pi/(self.dim*2)*i
+
+    def Ham(self,J,h):
+        Hamilton=np.zeros((2**self.dim,2**self.dim))
+        for i in range(self.dim):
+            Hamilton=Hamilton-h[i]*self.pauli_i_j(i,i)
+            for j in range(i+1,self.dim):
+                Hamilton=Hamilton-J[i,j]*self.pauli_i_j(i,j)
+        return Hamilton
+
+
+    def pauli_i_j(self,i,j):
+        Id = np.array([[1,0],[0,1]])
+        Z=np.array([[1,0],[0,-1]])
+        tens_pauli=np.array([[1]])
+        pauli_z_i_j = [Id for _ in range(self.dim)]
+        pauli_z_i_j[i]=Z
+        pauli_z_i_j[j]=Z
+        for i in range(self.dim):
+            tens_pauli=np.kron(tens_pauli,pauli_z_i_j[i])
+        return tens_pauli
+
+
+    def unitary(self,theta):
+        u=np.array([[1]])
+        for i in range(self.dim):
+            u=np.kron(u,np.array([[np.cos(theta[i]/2), -np.sin(theta[i]/2)],[np.sin(theta[i]/2),  np.cos(theta[i]/2)]]))
+        return Operator(u)
+    
+    def get_state(self,theta):
+        u=self.unitary(theta)
+        return self.state.evolve(u)
+    
+    def compute_energy(self,theta)-> float:
+        state = self.get_state(theta)
+        energy=np.vdot(state.data,self.Hamilton.data @ state.data)
+        return np.real(energy)
 
 
 # ============================================================================
@@ -304,6 +357,15 @@ class VQE_Numpy_FiniteDiff_ConstStep(
     pass
 
 
+class VQE_Ising_triv_FiniteDiff_ConstStep(
+    FiniteDifferenceGradient,
+    ConstantStepSize,
+    n_dim_ising_triv_ansatz
+):
+    """VQE mit NumPy, finiten Differenzen und konstanter Schrittweite"""
+    pass
+
+
 class VQE_Qiskit_FiniteDiff_ConstStep(
     FiniteDifferenceGradient,
     ConstantStepSize,
@@ -313,13 +375,16 @@ class VQE_Qiskit_FiniteDiff_ConstStep(
     pass
 
 
-class VQE_Numpy_FiniteDiff_DecayStep(
-    FiniteDifferenceGradient,
-    DecayingStepSize,
-    OneQubitSystemNumpy
-):
-    """VQE mit NumPy, finiten Differenzen und abnehmender Schrittweite"""
-    pass
+#class VQE_Numpy_FiniteDiff_DecayStep(
+#    FiniteDifferenceGradient,
+#    DecayingStepSize,
+#    OneQubitSystemNumpy
+#):
+#    """VQE mit NumPy, finiten Differenzen und abnehmender Schrittweite"""
+#    pass
+
+
+
 
 
 # ============================================================================
@@ -339,9 +404,9 @@ if __name__ == "__main__":
         store_history=True
     )
     
-    optimal_theta_np, optimal_energy_np = vqe_numpy.run(initial_params=np.pi/2)
+    optimal_theta_np, optimal_energy_np = vqe_numpy.run(initial_params=np.array([np.pi/2]))
     
-    print(f"\nOptimal θ: {optimal_theta_np:.6f}")
+    print(f"\nOptimal θ: {optimal_theta_np}")
     print(f"Optimal Energy: {optimal_energy_np:.6f}")
     print(f"Theoretical minimum: {-np.sqrt(2):.6f}")
     
@@ -359,10 +424,52 @@ if __name__ == "__main__":
         store_history=True
     )
     
-    optimal_theta_qk, optimal_energy_qk = vqe_qiskit.run(initial_params=np.pi/2)
+    optimal_theta_qk, optimal_energy_qk = vqe_qiskit.run(initial_params=np.array([np.pi/2]))
     
-    print(f"\nOptimal θ: {optimal_theta_qk:.6f}")
+    print(f"\nOptimal θ: {optimal_theta_np}")
     print(f"Optimal Energy: {optimal_energy_qk:.6f}")
     print(f"Theoretical minimum: {-np.sqrt(2):.6f}")
+    
+    vqe_qiskit.plot_results()
+
+    print("\n" + "=" * 60)
+    print("VQE Optimization - Ising")
+    print("=" * 60)
+
+
+    # Ising triv. ansatz for 7 spins
+
+    J_sys = np.array([
+        [0.0,  1.0,  0.0,  0.0,  0.0,  0.0,  0.0],
+        [1.0,  0.0,  0.8,  0.0,  0.0,  0.0,  0.0],
+        [0.0,  0.8,  0.0,  1.1,  0.0,  0.0,  0.0],
+        [0.0,  0.0,  1.1,  0.0,  0.9,  0.0,  0.0],
+        [0.0,  0.0,  0.0,  0.9,  0.0,  1.2,  0.0],
+        [0.0,  0.0,  0.0,  0.0,  1.2,  0.0,  0.7],
+        [0.0,  0.0,  0.0,  0.0,  0.0,  0.7,  0.0],
+    ], dtype=float)
+
+    h_sys = np.array([0.2, -0.1, 0.05, -0.15, 0.1, -0.05, 0.0], dtype=float)
+
+    vqe_ising_triv = VQE_Ising_triv_FiniteDiff_ConstStep(
+        max_iter=500,
+        learning_rate=0.01,
+        gradient_eps=1e-6,
+        store_history=True,
+        J=J_sys,
+        h=h_sys
+    )
+    
+    
+    theta=np.zeros(J_sys.shape[0])
+    for i in range(J_sys.shape[0]):
+            theta[i]=np.pi/J_sys.shape[0]*i
+
+    optimal_theta_qk, optimal_energy_qk = vqe_ising_triv.run(initial_params=theta)
+    
+
+    print(f"\nOptimal θ: {optimal_theta_qk}")
+    print(f"Optimal Energy: {optimal_energy_qk:.6f}")
+#    print(f"Theoretical minimum: {-np.sqrt(2):.6f}")
     
     vqe_qiskit.plot_results()
