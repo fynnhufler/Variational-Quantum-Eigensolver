@@ -13,4 +13,4 @@ BaseOptimizer (ABC)
 │
 ├── ConstantStepSize
 │
-└──DecayingStepSize
+└── DecayingStepSize
