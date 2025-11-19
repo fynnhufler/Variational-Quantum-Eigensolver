@@ -133,6 +133,7 @@ class BaseOptimizer(ABC):
         ax1_twin.set_ylabel('Energy', color='r')
         ax1.set_title('Parameter and Energy Evolution')
         ax1.grid(True, alpha=0.3)
+        plt.show() 
         """
         # Plot 2: Zustandsentwicklung
         ax2 = axes[1]
@@ -199,6 +200,11 @@ class DecayingStepSize:
     
     def step_size(self, params: Any, iteration: int) -> float:
         return self.learning_rate / (1.0 + self.decay * iteration)
+
+
+class adam:
+    """Adam optimizer"""
+    pass
 
 
 # ============================================================================
@@ -512,10 +518,10 @@ if __name__ == "__main__":
         h=h_sys
     )
     
-    
-    theta=np.zeros(J_sys.shape[0])
-    for i in range(J_sys.shape[0]):
-            theta[i]=np.pi/J_sys.shape[0]*i
+    dim_theta=J_sys.shape[0]
+    theta=np.zeros(dim_theta)
+    for i in range(dim_theta):
+            theta[i]=np.pi/dim_theta*i
 
     optimal_theta_qk, optimal_energy_qk = vqe_ising_triv.run(initial_params=theta)
     
@@ -523,6 +529,8 @@ if __name__ == "__main__":
     print(f"\nOptimal θ: {optimal_theta_qk}")
     print(f"Optimal Energy: {optimal_energy_qk:.6f}")
     print(f"Theoretical minimum: {-1.95:.6f}")
+
+    vqe_ising_triv.plot_results()
 
 
     print("\n" + "=" * 60)
@@ -539,9 +547,9 @@ if __name__ == "__main__":
 
     h_sys = np.array([0.2, -0.1, 0.05], dtype=float)
 
-    reps_sys=1
+    reps_sys=0
 
-    vqe_ising_triv = VQE_Ising_real_FiniteDiff_ConstStep(
+    vqe_ising_real = VQE_Ising_real_FiniteDiff_ConstStep(
         max_iter=500,
         learning_rate=0.01,
         gradient_eps=1e-6,
@@ -550,17 +558,19 @@ if __name__ == "__main__":
         h=h_sys,
         reps=reps_sys
     )
-    
-    theta=np.zeros((reps_sys+1)*J_sys.shape[0])
-    for i in range((reps_sys+1)*J_sys.shape[0]):
-        theta[i]=np.pi/(i+1)
+    dim_theta=(reps_sys+1)*J_sys.shape[0]
+    theta=np.zeros(dim_theta)
+    for i in range(dim_theta):
+        theta[i]=np.pi/dim_theta*i
 
-    optimal_theta_qk, optimal_energy_qk = vqe_ising_triv.run(initial_params=theta)
+    optimal_theta_qk, optimal_energy_qk = vqe_ising_real.run(initial_params=theta)
     
 
     print(f"\nOptimal θ: {optimal_theta_qk}")
     print(f"Optimal Energy: {optimal_energy_qk:.6f}")
     print(f"Theoretical minimum: {-1.95:.6f}")
+
+    vqe_ising_real.plot_results()
 
 
 
@@ -578,9 +588,9 @@ if __name__ == "__main__":
 
     h_sys = np.array([0.2, -0.1, 0.05], dtype=float)
 
-    reps_sys=1
+    reps_sys=0
 
-    vqe_ising_triv = VQE_Ising_complex_FiniteDiff_ConstStep(
+    vqe_ising_complex = VQE_Ising_complex_FiniteDiff_ConstStep(
         max_iter=500,
         learning_rate=0.01,
         gradient_eps=1e-6,
@@ -589,17 +599,19 @@ if __name__ == "__main__":
         h=h_sys,
         reps=reps_sys
     )
-    
-    theta=np.zeros((reps_sys+1)*J_sys.shape[0]*2)
-    for i in range((reps_sys+1)*J_sys.shape[0]*2):
-        theta[i]=np.pi/(i+1)
+    dim_theta=(reps_sys+1)*J_sys.shape[0]*2
+    theta=np.zeros(dim_theta)
+    for i in range(dim_theta):
+        theta[i]=np.pi/dim_theta*i
 
-    optimal_theta_qk, optimal_energy_qk = vqe_ising_triv.run(initial_params=theta)
+    optimal_theta_qk, optimal_energy_qk = vqe_ising_complex.run(initial_params=theta)
     
 
     print(f"\nOptimal θ: {optimal_theta_qk}")
     print(f"Optimal Energy: {optimal_energy_qk:.6f}")
     print(f"Theoretical minimum: {-1.95:.6f}")
+
+    vqe_ising_complex.plot_results()
 
 
 
