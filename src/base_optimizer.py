@@ -199,6 +199,29 @@ class PSR_Gradient:
 
             gradient[i]=(energy_plus-energy_minus)/2
         return gradient
+    
+
+class SPSA_Gradient:
+    def __init__(self, *args, gradient_eps: float = 1e-6, **kwargs):
+        self.gradient_eps = gradient_eps
+        super().__init__(*args, **kwargs)
+    
+    def compute_gradient(self, params: Any) -> Any:
+        """Simultaneous Perturbation Stochastic Approximation:
+            ( f(θ + s_k·Δ_k) - f(θ - s_k·Δ_k) ) / (2·s_k)  ·  Δ_k
+        """
+        delta_k=(2 * np.random.randint(0, 2, size=params.size) - 1)
+
+
+        params_plus=params+self.gradient_eps*delta_k
+        params_minus=params-self.gradient_eps*delta_k
+        energy_plus = self.compute_energy(params_plus)
+        energy_minus = self.compute_energy(params_minus)
+
+        gradient=(energy_plus-energy_minus)/(2*self.gradient_eps)*delta_k
+        return gradient    
+
+
 # ============================================================================
 # STEP SIZE STRATEGIES
 # ============================================================================
@@ -240,7 +263,7 @@ class Adam:
         if self.m is None or self.v is None:
             self.m = np.zeros_like(params, dtype=float)
             self.v = np.zeros_like(params, dtype=float)
-
+        iteration+=1
 
         # Exponential moving averages
         self.m = self.beta1 * self.m + (1.0 - self.beta1) * gradient
@@ -458,6 +481,16 @@ class VQE_Numpy_PSR_ConstStep(
     pass
 
 
+
+class VQE_Numpy_SPSA_ConstStep(
+    SPSA_Gradient,
+    ConstantStepSize,
+    OneQubitSystemNumpy
+):
+    """VQE mit NumPy, finiten Differenzen und konstanter Schrittweite"""
+    pass
+
+
 class VQE_Ising_triv_PSR_ConstStep(
     PSR_Gradient,
     ConstantStepSize,
@@ -487,8 +520,8 @@ class VQE_Ising_complex_FiniteDiff_ConstStep(
 
 
 
-class VQE_Ising_complex_FiniteDiff_Adam(
-    FiniteDifferenceGradient,
+class VQE_Ising_complex_SPSA_Adam(
+    SPSA_Gradient,
     Adam,
     n_dim_ising_complex_ansatz
 ):
@@ -513,7 +546,6 @@ class VQE_Qiskit_FiniteDiff_ConstStep(
 #):
 #    """VQE mit NumPy, finiten Differenzen und abnehmender Schrittweite"""
 #    pass
-
 
 
 
@@ -563,6 +595,29 @@ if __name__ == "__main__":
     print(f"Theoretical minimum: {-np.sqrt(2):.6f}")
     
     vqe_numpy_PSR.plot_results()
+
+
+
+
+    print("=" * 60)
+    print("VQE Optimization - SPSA Implementation")
+    print("=" * 60)
+    
+    # NumPy Variante
+    vqe_numpy_SPSA = VQE_Numpy_SPSA_ConstStep(
+        max_iter=500,
+        learning_rate=0.01,
+        gradient_eps=1e-6,
+        store_history=True
+    )
+    
+    optimal_theta_np, optimal_energy_np = vqe_numpy_SPSA.run(initial_params=np.array([np.pi/2]))
+    
+    print(f"\nOptimal θ: {optimal_theta_np}")
+    print(f"Optimal Energy: {optimal_energy_np:.6f}")
+    print(f"Theoretical minimum: {-np.sqrt(2):.6f}")
+    
+    vqe_numpy.plot_results()
 
 
 
@@ -665,87 +720,86 @@ if __name__ == "__main__":
 
 
 
-#     print("\n" + "=" * 60)
-#     print("VQE Optimization - Ising - complex-ansatz")
-#     print("=" * 60)
+    # print("\n" + "=" * 60)
+    # print("VQE Optimization - Ising - complex-ansatz")
+    # print("=" * 60)
 
 
     
-#     J_sys = np.array([
-#         [0.0,  1.0,  0.0],
-#         [1.0,  0.0,  0.8],
-#         [0.0,  0.8,  0.0],
-#     ], dtype=float)
+    # J_sys = np.array([
+    #     [0.0,  1.0,  0.0],
+    #     [1.0,  0.0,  0.8],
+    #     [0.0,  0.8,  0.0],
+    # ], dtype=float)
 
-#     h_sys = np.array([0.2, -0.1, 0.05], dtype=float)
+    # h_sys = np.array([0.2, -0.1, 0.05], dtype=float)
 
-#     reps_sys=0
+    # reps_sys=0
 
-#     vqe_ising_complex = VQE_Ising_complex_FiniteDiff_ConstStep(
-#         max_iter=500,
-#         learning_rate=0.01,
-#         gradient_eps=1e-6,
-#         store_history=True,
-#         J=J_sys,
-#         h=h_sys,
-#         reps=reps_sys
-#     )
-#     dim_theta=(reps_sys+1)*J_sys.shape[0]*2
-#     theta=np.zeros(dim_theta)
-#     for i in range(dim_theta):
-#         theta[i]=np.pi/dim_theta*i
+    # vqe_ising_complex = VQE_Ising_complex_FiniteDiff_ConstStep(
+    #     max_iter=500,
+    #     learning_rate=0.01,
+    #     gradient_eps=1e-6,
+    #     store_history=True,
+    #     J=J_sys,
+    #     h=h_sys,
+    #     reps=reps_sys
+    # )
+    # dim_theta=(reps_sys+1)*J_sys.shape[0]*2
+    # theta=np.zeros(dim_theta)
+    # for i in range(dim_theta):
+    #     theta[i]=np.pi/dim_theta*i
 
-#     optimal_theta, optimal_energy = vqe_ising_complex.run(initial_params=theta)
+    # optimal_theta, optimal_energy = vqe_ising_complex.run(initial_params=theta)
     
 
-#     print(f"\nOptimal θ: {optimal_theta}")
-#     print(f"Optimal Energy: {optimal_energy:.6f}")
-#     print(f"Theoretical minimum: {-1.95:.6f}")
+    # print(f"\nOptimal θ: {optimal_theta}")
+    # print(f"Optimal Energy: {optimal_energy:.6f}")
+    # print(f"Theoretical minimum: {-1.95:.6f}")
 
-#     vqe_ising_complex.plot_results()
-
-
+    # vqe_ising_complex.plot_results()
 
 
-#     print("\n" + "=" * 60)
-#     print("VQE Optimization - Ising - complex-ansatz- adam")
-#     print("=" * 60)
+
+
+    print("\n" + "=" * 60)
+    print("VQE Optimization - Ising - complex-ansatz- adam- SPSA")
+    print("=" * 60)
 
 
     
-#     J_sys = np.array([
-#         [0.0,  1.0,  0.0],
-#         [1.0,  0.0,  0.8],
-#         [0.0,  0.8,  0.0],
-#     ], dtype=float)
+    J_sys = np.array([
+        [0.0,  1.0,  0.0],
+        [1.0,  0.0,  0.8],
+        [0.0,  0.8,  0.0],
+    ], dtype=float)
 
-#     h_sys = np.array([0.2, -0.1, 0.05], dtype=float)
+    h_sys = np.array([0.2, -0.1, 0.05], dtype=float)
 
-#     reps_sys=0
+    reps_sys=1
 
-#     vqe_ising_complex_adam = VQE_Ising_complex_FiniteDiff_Adam(
-#         max_iter=500,
-#         learning_rate=0.01,
-#         gradient_eps=1e-6,
-#         store_history=True,
-#         J=J_sys,
-#         h=h_sys,
-#         reps=reps_sys
-#     )
-#     dim_theta=(reps_sys+1)*J_sys.shape[0]*2
-#     theta=np.zeros(dim_theta)
-#     for i in range(dim_theta):
-#         theta[i]=np.pi/dim_theta*i
+    vqe_ising_complex_adam_SPSA = VQE_Ising_complex_SPSA_Adam(
+        max_iter=500,
+        learning_rate=0.01,
+        gradient_eps=1e-6,
+        store_history=True,
+        J=J_sys,
+        h=h_sys,
+        reps=reps_sys
+    )
+    dim_theta=(reps_sys+1)*J_sys.shape[0]*2
+    theta=np.zeros(dim_theta)
+    for i in range(dim_theta):
+        theta[i]=np.pi/dim_theta*i
 
-#     #optimal_theta, optimal_energy = vqe_ising_complex_adam.run(initial_params=theta)
+    optimal_theta, optimal_energy = vqe_ising_complex_adam_SPSA.run(initial_params=theta)
     
 
-#     print(f"\nOptimal θ: {optimal_theta}")
-#     print(f"Optimal Energy: {optimal_energy:.6f}")
-#     print(f"Theoretical minimum: {-1.95:.6f}")
+    print(f"\nOptimal θ: {optimal_theta}")
+    print(f"Optimal Energy: {optimal_energy:.6f}")
+    print(f"Theoretical minimum: {-1.95:.6f}")
 
-#     vqe_ising_complex.plot_results()
-
+    vqe_ising_complex_adam_SPSA.plot_results()
 
     
 
