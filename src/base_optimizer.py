@@ -202,9 +202,37 @@ class DecayingStepSize:
         return self.learning_rate / (1.0 + self.decay * iteration)
 
 
-class adam:
+class Adam:
     """Adam optimizer"""
-    pass
+    def __init__(self, beta1=0.9, beta2=0.999, eps=1e-8, learning_rate: float = 0.1, **kwargs):
+        super().__init__(**kwargs)
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.eps = eps
+        self.eta = learning_rate
+        self.m = None
+        self.v = None
+
+    def _update(self, params: Any, gradient: Any, iteration: int) -> Any:
+        # Lazy state initialization (handles shape (n_dim,) or (n_batch, n_dim))
+        if self.m is None or self.v is None:
+            self.m = np.zeros_like(params, dtype=float)
+            self.v = np.zeros_like(params, dtype=float)
+
+
+        # Exponential moving averages
+        self.m = self.beta1 * self.m + (1.0 - self.beta1) * gradient
+        self.v = self.beta2 * self.v + (1.0 - self.beta2) * (gradient * gradient)
+
+        # Bias corrections based on exponential moving averages
+        m_hat = self.m / (1.0 - self.beta1 ** iteration)
+        v_hat = self.v / (1.0 - self.beta2 ** iteration)
+
+        # Parameter update
+        params_new = params - self.eta * m_hat / (np.sqrt(v_hat) + self.eps)
+        # X_new = X - self.lr * self.loss.grad(X)
+        return params_new
+
 
 
 # ============================================================================
@@ -428,6 +456,16 @@ class VQE_Ising_complex_FiniteDiff_ConstStep(
 
 
 
+class VQE_Ising_complex_FiniteDiff_Adam(
+    FiniteDifferenceGradient,
+    Adam,
+    n_dim_ising_complex_ansatz
+):
+    """VQE mit NumPy, finiten Differenzen und konstanter Schrittweite"""
+    pass
+
+
+
 class VQE_Qiskit_FiniteDiff_ConstStep(
     FiniteDifferenceGradient,
     ConstantStepSize,
@@ -612,6 +650,51 @@ if __name__ == "__main__":
     print(f"Theoretical minimum: {-1.95:.6f}")
 
     vqe_ising_complex.plot_results()
+
+
+
+
+    print("\n" + "=" * 60)
+    print("VQE Optimization - Ising - complex-ansatz- adam")
+    print("=" * 60)
+
+
+    
+    J_sys = np.array([
+        [0.0,  1.0,  0.0],
+        [1.0,  0.0,  0.8],
+        [0.0,  0.8,  0.0],
+    ], dtype=float)
+
+    h_sys = np.array([0.2, -0.1, 0.05], dtype=float)
+
+    reps_sys=0
+
+    vqe_ising_complex_adam = VQE_Ising_complex_FiniteDiff_Adam(
+        max_iter=500,
+        learning_rate=0.01,
+        gradient_eps=1e-6,
+        store_history=True,
+        J=J_sys,
+        h=h_sys,
+        reps=reps_sys
+    )
+    dim_theta=(reps_sys+1)*J_sys.shape[0]*2
+    theta=np.zeros(dim_theta)
+    for i in range(dim_theta):
+        theta[i]=np.pi/dim_theta*i
+
+    optimal_theta_qk, optimal_energy_qk = vqe_ising_complex_adam.run(initial_params=theta)
+    
+
+    print(f"\nOptimal θ: {optimal_theta_qk}")
+    print(f"Optimal Energy: {optimal_energy_qk:.6f}")
+    print(f"Theoretical minimum: {-1.95:.6f}")
+
+    vqe_ising_complex.plot_results()
+
+
+    
 
 
 
