@@ -88,6 +88,7 @@ class BaseOptimizer(ABC):
             (optimale_parameter, optimale_energie)
         """
         params = initial_params
+        energy_prev = self.compute_energy(params)
         
         for iteration in range(self.max_iter):
             # Historie speichern
@@ -97,14 +98,16 @@ class BaseOptimizer(ABC):
             gradient = self.compute_gradient(params)
             new_params = self._update(params, gradient, iteration)
 
-            E_old, E_new = self.compute_energy(params), self.compute_energy(new_params)
+            energy_new = self.compute_energy(new_params)
             
             # Konvergenzkriterium (optional)
-            if np.abs(E_new - E_old) < self.eps:
+            if np.abs(energy_new - energy_prev) < self.eps:
                 params = new_params
                 break
             
+            #updates for next iteration
             params = new_params
+            energy_prev = energy_new
         
         # Finale Werte speichern
         self._store_iteration(params)
@@ -132,7 +135,7 @@ class BaseOptimizer(ABC):
         ax1_twin.set_ylabel('Energy', color='r')
         ax1.set_title('Parameter and Energy Evolution')
         ax1.grid(True, alpha=0.3)
-        """
+        
         # Plot 2: Zustandsentwicklung
         ax2 = axes[1]
         if self.history_state and hasattr(self.history_state[0], '__iter__'):
@@ -150,7 +153,6 @@ class BaseOptimizer(ABC):
         
         plt.tight_layout()
         plt.show()
-        """
 
 
 # ============================================================================
