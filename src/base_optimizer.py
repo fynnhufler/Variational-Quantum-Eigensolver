@@ -289,9 +289,9 @@ class OneQubitSystem(BaseOptimizer):
     Abstrakte Basisklasse für Ein-Qubit-Systeme.
     Definiert gemeinsame Struktur für numpy und Qiskit Implementierungen.
     """
-    def __init__(self, initial_theta: np.ndarray = np.array([np.pi/2]), **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.theta = initial_theta
+        #self.theta = initial_theta
         self._setup_hamiltonian()
         self._setup_initial_state()
     
@@ -379,17 +379,34 @@ class n_dim_ising(BaseOptimizer):
     def __init__(self,J,h,**kwargs):
         super().__init__(**kwargs)
         self.dim=J.shape[0]
-        self.Hamilton=self.Ham(J,h)
-        self.Hamilton=Operator(self.Hamilton)
-        self.state=Statevector.from_instruction(QuantumCircuit(self.dim))
+        self._setup_hamiltonian(J,h)
+        self._setup_initial_state()
+#        self.state=Statevector.from_instruction(QuantumCircuit(self.dim))
 
-    def Ham(self,J,h):
+
+        # self._setup_hamiltonian()
+        # self._setup_initial_state()
+
+    def _setup_hamiltonian(self,J,h):
         Hamilton=np.zeros((2**self.dim,2**self.dim))
         for i in range(self.dim):
             Hamilton=Hamilton-h[i]*self.pauli_i_j(i,i)
             for j in range(i+1,self.dim):
                 Hamilton=Hamilton-J[i,j]*self.pauli_i_j(i,j)
-        return Hamilton
+        self.Hamilton=Operator(Hamilton)
+    
+    def _setup_initial_state(self):
+        self.state=Statevector.from_instruction(QuantumCircuit(self.dim))
+
+
+
+    # def Ham(self,J,h):
+    #     Hamilton=np.zeros((2**self.dim,2**self.dim))
+    #     for i in range(self.dim):
+    #         Hamilton=Hamilton-h[i]*self.pauli_i_j(i,i)
+    #         for j in range(i+1,self.dim):
+    #             Hamilton=Hamilton-J[i,j]*self.pauli_i_j(i,j)
+    #     return Hamilton
 
 
     def pauli_i_j(self,i,j):
@@ -567,11 +584,13 @@ if __name__ == "__main__":
         store_history=True
     )
     
+    
     optimal_theta_np, optimal_energy_np = vqe_numpy.run(initial_params=np.array([np.pi/2]))
     
     print(f"\nOptimal θ: {optimal_theta_np}")
     print(f"Optimal Energy: {optimal_energy_np:.6f}")
     print(f"Theoretical minimum: {-np.sqrt(2):.6f}")
+    print(vqe_numpy.initial_state)
     
     vqe_numpy.plot_results()
     
