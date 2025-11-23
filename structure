@@ -1,16 +1,30 @@
 BaseOptimizer (ABC)
 │
-├── OneQubitSystem (ABC)
-│   ├── OneQubitSystemNumpy
-│   └── OneQubitSystemQiskit
+├── OneQubitSystem
 │
-├── n_dim_ising (ABC)
-│   ├── n_dim_ising_triv_ansatz
-│   ├── n_dim_ising_real_ansatz
-│   └── n_dim_ising_complex_ansatz
+├── n_dim_ising
+│                                           system
+│   --------------------------------------
+│
+├── n_dim_ising_triv_ansatz
+│
+├── n_dim_ising_real_ansatz
+│   
+├── n_dim_ising_complex_ansatz
+│                                           ansatz
+│-----------------------------------------
 │
 ├── FiniteDifferenceGradient
+│
+├── PSR_Gradient
+│
+├── SPSA_Gradient
+│                                           gradient
+│   --------------------------------------
+│
+├── ConstantStepSize
 │
 ├── ConstantStepSize
 │
 └── DecayingStepSize
+                                            optimization
