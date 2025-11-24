@@ -30,6 +30,7 @@ class BaseOptimizer(ABC):
         self.params= None
         self.iteration=1
         self.state=None
+        self.params_dim=None
         
         # History storage
         self.store_history_flag = store_history
@@ -53,7 +54,7 @@ class BaseOptimizer(ABC):
         return np.real(np.vdot(state.data, operator.data @ state.data))
     
     def get_state(self, params) -> Statevector:
-        return self.initial_state.evolve(self.ansatz(params))#, qargs=[0])
+        return self.initial_state.evolve(self.ansatz(params))
     
     def step_size(self) -> float:
         """
@@ -83,9 +84,11 @@ class BaseOptimizer(ABC):
         Returns:
             (optimale_parameter, optimale_energie)
         """
+        self.params_dim=initial_params.size
         self.params=initial_params
         
         for self.iteration in range(self.max_iter):
+            print(self.iteration/self.max_iter*100,'%')
             self.state=self.get_state(self.params)
             self._store_iteration()
             
@@ -161,8 +164,8 @@ class FiniteDifferenceGradient:
     
     def compute_gradient(self) -> Any:
         """Numerischer Gradient: (E(θ+ε) - E(θ)) / ε"""
-        gradient=np.zeros(self.params.size, dtype=float)
-        for i in range(self.params.size):
+        gradient=np.zeros(self.params_dim, dtype=float)
+        for i in range(self.params_dim):
             energy_current = self.compute_expectation_value(self.state,self.hamilton)
             params_shifted=self.params.copy()
             params_shifted[i]=self.params[i]+self.gradient_eps
@@ -180,8 +183,8 @@ class PSR_Gradient:
     
     def compute_gradient(self) -> Any:
         """Numerischer Gradient: (E(θ+pi/2) - E(θ-p/2)) / 2"""
-        gradient=np.zeros(self.params.size, dtype=float)
-        for i in range(self.params.size):
+        gradient=np.zeros(self.params_dim, dtype=float)
+        for i in range(self.params_dim):
             params_plus=self.params.copy()
             params_plus[i]=self.params[i]+np.pi/2
             state_plus=self.get_state(params_plus)
@@ -203,7 +206,7 @@ class SPSA_Gradient:
         """Simultaneous Perturbation Stochastic Approximation:
             ( f(θ + s_k·Δ_k) - f(θ - s_k·Δ_k) ) / (2·s_k)  ·  Δ_k
         """
-        delta_k=(2 * np.random.randint(0, 2, size=self.params.size) - 1)
+        delta_k=(2 * np.random.randint(0, 2, size=self.params_dim) - 1)
 
         params_plus=self.params+self.gradient_eps*delta_k
         state_plus=self.get_state(params_plus)
@@ -217,7 +220,7 @@ class SPSA_Gradient:
 
 
 # ============================================================================
-# STEP SIZE STRATEGIES
+# STEP SIZE STRATEGIES / OPTIMIZERS
 # ============================================================================
 
 class ConstantStepSize:
@@ -238,7 +241,7 @@ class DecayingStepSize:
         super().__init__(*args, **kwargs)
     
     def step_size(self) -> float:
-        return self.learning_rate / (1.0 + self.decay * self.iteration)
+        return self.learning_rate * (1.0 + self.decay * self.iteration)
 
 
 class Adam:
@@ -270,7 +273,118 @@ class Adam:
         # Parameter update
         params_new = self.params - self.eta * m_hat / (np.sqrt(v_hat) + self.eps)
         return params_new
+    
 
+
+
+class qng_finite_difference:
+
+    def __init__(self, *args, qng_eps: float = 1e-6, **kwargs):
+        self.qng_eps = qng_eps
+        super().__init__(*args, **kwargs)
+
+    def _update(self, gradient: Any) -> Any:
+        """
+        Standard Gradientenabstieg: θ_new = θ_old - η * ∇E
+        """
+        fsm = self.fsm()
+        #print('tessst:',self.params,fsm,gradient)
+        return self.params - self.step_size()*fsm @ gradient
+    
+    def fsm(self):
+        g = np.zeros((self.params_dim,self.params_dim))
+        Id=np.identity(self.params_dim, dtype=float)
+        state=self.state.data
+        for i in range(self.params_dim):
+            state_i=self.state_deriv_data(i)
+            state_i_state=np.vdot(state_i, state)
+            for j in range(self.params_dim):
+                state_j=self.state_deriv_data(j)
+                state_i_state_j=np.vdot(state_i, state_j)
+                state_state_j=np.vdot(state, state_j)
+                g[i][j]=np.real(state_i_state_j-state_i_state*state_state_j)
+        return np.linalg.pinv(g)
+        
+    
+    def state_deriv_data(self,i):
+        params_shifted=self.params.copy()
+        params_shifted[i]=self.params[i]+self.qng_eps
+        state_shifted=self.get_state(params_shifted)
+        state_data=self.state.data
+        state_shifted_data=state_shifted.data
+        return (state_shifted_data-state_data)/self.qng_eps
+
+
+
+
+
+
+class qng_bda:
+    def _update(self, gradient: Any) -> Any:
+        """
+        Standard Gradientenabstieg: θ_new = θ_old - η * ∇E
+        """
+        fsm = self.step_size()
+        return self.params - fsm @ gradient
+    
+    def fsm(self):
+        g = np.zeros((self.params_dim,self.params_dim))
+
+    #inital operator
+    #determine block
+        #determine phi_l
+            #get teil ansatz
+                #get variables
+        #get pauli*pauli / pauli
+        #determine expec.
+        #final block formel
+    #put it together
+    #invert it
+
+
+# ============================================================================
+# ANSATZ
+# ============================================================================
+
+
+class triv_ansatz:
+    def ansatz(self,theta):
+        u=np.array([[1]])
+        for i in range(self.dim):
+            u=np.kron(u,np.array([[np.cos(theta[i]/2), -np.sin(theta[i]/2)],[np.sin(theta[i]/2),  np.cos(theta[i]/2)]]))
+        return Operator(u)
+
+
+class real_ansatz:
+    def __init__(self,reps,**kwargs):
+        super().__init__(**kwargs)
+        self.reps=reps
+
+    def ansatz(self,theta):
+        num_qubits = self.dim
+        reps = self.reps
+        entanglement = 'full'
+
+        ansatz = RealAmplitudes(num_qubits=num_qubits,reps=reps,entanglement=entanglement,insert_barriers=True,).decompose()
+        ansatz_bound = ansatz.assign_parameters(theta)
+        return ansatz_bound
+    
+
+    
+
+class complex_ansatz:
+    def __init__(self,reps,**kwargs):
+        super().__init__(**kwargs)
+        self.reps=reps
+
+    def ansatz(self,theta):
+        num_qubits = self.dim
+        reps = self.reps
+        entanglement = 'full'
+
+        ansatz = EfficientSU2(num_qubits=num_qubits,reps=reps,entanglement=entanglement,insert_barriers=True).decompose()
+        ansatz_bound = ansatz.assign_parameters(theta)
+        return ansatz_bound
 
 
 # ============================================================================
@@ -284,6 +398,7 @@ class OneQubitSystem(BaseOptimizer):
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.dim=1
         self._setup_hamiltonian()
         self._setup_initial_state()
     
@@ -298,12 +413,12 @@ class OneQubitSystem(BaseOptimizer):
         qc = QuantumCircuit(1)
         self.initial_state = Statevector.from_instruction(qc)
 
-    def ansatz(self, theta) -> Statevector:
-        """U(θ) = exp(-iθY/2)"""
-        c = np.cos(theta[0] / 2)
-        s = np.sin(theta[0] / 2)
-        U_matrix = np.array([[c, s], [-s, c]], dtype=complex)
-        return Operator(U_matrix)
+    # def ansatz(self, theta) -> Statevector:
+    #     """U(θ) = exp(-iθY/2)"""
+    #     c = np.cos(theta[0] / 2)
+    #     s = np.sin(theta[0] / 2)
+    #     U_matrix = np.array([[c, s], [-s, c]], dtype=complex)
+    #     return Operator(U_matrix)
     
     
 
@@ -337,42 +452,7 @@ class n_dim_ising(BaseOptimizer):
         return tens_pauli
 
 
-class triv_ansatz:
-    def ansatz(self,theta):
-        u=np.array([[1]])
-        for i in range(self.dim):
-            u=np.kron(u,np.array([[np.cos(theta[i]/2), -np.sin(theta[i]/2)],[np.sin(theta[i]/2),  np.cos(theta[i]/2)]]))
-        return Operator(u)
 
-
-class real_ansatz:
-    def __init__(self,reps,**kwargs):
-        super().__init__(**kwargs)
-        self.reps=reps
-
-    def ansatz(self,theta):
-        num_qubits = self.dim
-        reps = self.reps
-        entanglement = 'full'
-
-        ansatz = RealAmplitudes(num_qubits=num_qubits,reps=reps,entanglement=entanglement,insert_barriers=True,).decompose()
-        ansatz_bound = ansatz.assign_parameters(theta)
-        return ansatz_bound
-    
-
-class complex_ansatz:
-    def __init__(self,reps,**kwargs):
-        super().__init__(**kwargs)
-        self.reps=reps
-
-    def ansatz(self,theta):
-        num_qubits = self.dim
-        reps = self.reps
-        entanglement = 'full'
-
-        ansatz = EfficientSU2(num_qubits=num_qubits,reps=reps,entanglement=entanglement,insert_barriers=True).decompose()
-        ansatz_bound = ansatz.assign_parameters(theta)
-        return ansatz_bound
 
 # ============================================================================
 # KONKRETE VQE IMPLEMENTIERUNGEN (durch Mixins komponiert)
@@ -381,6 +461,17 @@ class complex_ansatz:
 class VQE_one_qubit_FiniteDiff_ConstStep(
     FiniteDifferenceGradient,
     ConstantStepSize,
+    triv_ansatz,
+    OneQubitSystem
+):
+    """VQE mit NumPy, finiten Differenzen und konstanter Schrittweite"""
+    pass
+
+
+class VQE_one_qubit_PSR_ConstStep_qng(
+    PSR_Gradient,
+    qng_finite_difference,
+    real_ansatz,
     OneQubitSystem
 ):
     """VQE mit NumPy, finiten Differenzen und konstanter Schrittweite"""
@@ -389,11 +480,13 @@ class VQE_one_qubit_FiniteDiff_ConstStep(
 
 class VQE_one_qubit_PSR_ConstStep(
     PSR_Gradient,
-    ConstantStepSize,
+    Adam,
+    real_ansatz,
     OneQubitSystem
 ):
     """VQE mit NumPy, finiten Differenzen und konstanter Schrittweite"""
     pass
+
 
 
 class VQE_Ising_triv_PSR_ConstStep(
@@ -416,20 +509,21 @@ class VQE_Ising_real_FiniteDiff_ConstStep(
     pass
 
 
-class VQE_Ising_complex_FiniteDiff_ConstStep(
-    FiniteDifferenceGradient,
-    ConstantStepSize,
-    complex_ansatz,
+class VQE_Ising_real_PSR_qng(
+    PSR_Gradient,
+    DecayingStepSize,
+    qng_finite_difference,
+    real_ansatz,
     n_dim_ising
 ):
     """VQE mit NumPy, finiten Differenzen und konstanter Schrittweite"""
     pass
 
 
-class VQE_Ising_complex_SPSA_Adam(
-    SPSA_Gradient,
+class VQE_Ising_real_PSR_Adam(
+    PSR_Gradient,
     Adam,
-    complex_ansatz,
+    real_ansatz,
     n_dim_ising
 ):
     """VQE mit NumPy, finiten Differenzen und konstanter Schrittweite"""
@@ -442,37 +536,38 @@ class VQE_Ising_complex_SPSA_Adam(
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("VQE Optimization - one Qubit- (VQE_one_qubit_FiniteDiff_ConstStep)")
-    print("=" * 60)
-    
-
-    vqe_one_qubit = VQE_one_qubit_FiniteDiff_ConstStep(
-        max_iter=500,
-        learning_rate=0.01,
-        gradient_eps=1e-6,
-        store_history=True
-    )
-    
-    
-    optimal_theta_np, optimal_energy_np = vqe_one_qubit.run(initial_params=np.array([np.pi/2]))
-    
-    print(f"\nOptimal θ: {optimal_theta_np}")
-    print(f"Optimal Energy: {optimal_energy_np:.6f}")
-    print(f"Theoretical minimum: {-np.sqrt(2):.6f}")
-    
-    vqe_one_qubit.plot_results()
-    
-
-
-
-    print("=" * 60)
     print("VQE Optimization - one qubit (VQE_one_qubit_PSR_ConstStep)")
     print("=" * 60)
 
     vqe_one_qubit_PSR = VQE_one_qubit_PSR_ConstStep(
         max_iter=500,
         learning_rate=0.01,
-        store_history=True
+        store_history=True,
+        eps=1e-6,
+        reps=0
+    )
+    
+    optimal_theta, optimal_energy = vqe_one_qubit_PSR.run(initial_params=np.array([np.pi/2]))
+    
+    print(f"\nOptimal θ: {optimal_theta}")
+    print(f"Optimal Energy: {optimal_energy:.6f}")
+    print(f"Theoretical minimum: {-np.sqrt(2):.6f}")
+    
+    vqe_one_qubit_PSR.plot_results()
+    
+
+
+
+    print("=" * 60)
+    print("VQE Optimization - one qubit (VQE_one_qubit_PSR_ConstStep_qng)")
+    print("=" * 60)
+
+    vqe_one_qubit_PSR = VQE_one_qubit_PSR_ConstStep_qng(
+        max_iter=500,
+        #learning_rate=0.01,
+        store_history=True,
+        qng_eps=1e-6,
+        reps=0
     )
     
     optimal_theta, optimal_energy = vqe_one_qubit_PSR.run(initial_params=np.array([np.pi/2]))
@@ -483,11 +578,11 @@ if __name__ == "__main__":
     
     vqe_one_qubit_PSR.plot_results()
 
-
+#--------------------------------------------------------------------------------------------------------
 
 
     print("\n" + "=" * 60)
-    print("VQE Optimization - Ising (VQE_Ising_triv_PSR_ConstStep)")
+    print("VQE Optimization - Ising (VQE_Ising_real_PSR_qng)")
     print("=" * 60)
 
     J_sys = np.array([
@@ -498,32 +593,35 @@ if __name__ == "__main__":
 
     h_sys = np.array([0.2, -0.1, 0.05], dtype=float)
 
-    vqe_ising_triv = VQE_Ising_triv_PSR_ConstStep(
-        max_iter=500,
-        learning_rate=0.01,
+    reps_sys=1
+
+    vqe_ising_real = VQE_Ising_real_PSR_qng(
+        max_iter=200,
+        #learning_rate=0.01,
         store_history=True,
+        reps=reps_sys,
         J=J_sys,
         h=h_sys
     )
     
-    dim_theta=J_sys.shape[0]
+    dim_theta=(reps_sys+1)*J_sys.shape[0]
     theta=np.zeros(dim_theta)
     for i in range(dim_theta):
-            theta[i]=np.pi/dim_theta*i
+        theta[i]=np.pi/dim_theta*i
 
-    optimal_theta, optimal_energy = vqe_ising_triv.run(initial_params=theta)
+    optimal_theta, optimal_energy = vqe_ising_real.run(initial_params=theta)
 
     print(f"\nOptimal θ: {optimal_theta}")
     print(f"Optimal Energy: {optimal_energy:.6f}")
     print(f"Theoretical minimum: {-1.95:.6f}")
 
-    vqe_ising_triv.plot_results()
+    vqe_ising_real.plot_results()
 
 
 
 
     print("\n" + "=" * 60)
-    print("VQE Optimization - Ising - (VQE_Ising_complex_SPSA_Adam)")
+    print("VQE Optimization - Ising - (VQE_Ising_real_PSR_Adam)")
     print("=" * 60)
     
     J_sys = np.array([
@@ -536,38 +634,45 @@ if __name__ == "__main__":
 
     reps_sys=1
 
-    vqe_ising_complex_adam_SPSA = VQE_Ising_complex_SPSA_Adam(
-        max_iter=1500,
+    vqe_ising_real_adam_SPSA = VQE_Ising_real_PSR_Adam(
+        max_iter=500,
         learning_rate=0.01,
-        gradient_eps=1e-6,
+        #gradient_eps=1e-6,
         store_history=True,
+        reps=reps_sys,
         J=J_sys,
-        h=h_sys,
-        reps=reps_sys
+        h=h_sys
     )
-    dim_theta=(reps_sys+1)*J_sys.shape[0]*2
+    dim_theta=(reps_sys+1)*J_sys.shape[0]
     theta=np.zeros(dim_theta)
     for i in range(dim_theta):
         theta[i]=np.pi/dim_theta*i
 
-    optimal_theta, optimal_energy = vqe_ising_complex_adam_SPSA.run(initial_params=theta)
+    optimal_theta, optimal_energy = vqe_ising_real_adam_SPSA.run(initial_params=theta)
     
 
     print(f"\nOptimal θ: {optimal_theta}")
     print(f"Optimal Energy: {optimal_energy:.6f}")
     print(f"Theoretical minimum: {-1.95:.6f}")
 
-    vqe_ising_complex_adam_SPSA.plot_results()
+    vqe_ising_real_adam_SPSA.plot_results()
 
     
 
 
 
-# #to do:
-# #inital theta (random, several)
-# #gute plots
-# #opti (quantum grad estimation, natural)
+# to do:
+#   inital theta (random, mehrere)
+#   gute plots
+#   opti (quantum grad estimation, natural, via phase estimation E bestimmen, coolen opti, fancy opti)
+#   one qubit with generall ansatz
+#   H2
+#   gute ordner struktur
 
 
-
+#check if qng actually works(faster/ising)      check
+#do step generall
+#eps fixen
+#qng properly
+#psr grad png_diag in ansatz?
 
