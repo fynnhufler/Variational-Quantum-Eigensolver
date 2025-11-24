@@ -20,12 +20,12 @@ class BaseOptimizer(ABC):
     def __init__(
         self,
         max_iter: int = 100,
-        eps: float = 1e-6,
+        eps_energy: float = 1e-6,
         store_history: bool = True,
         random_state: Optional[int] = None
     ):
         self.max_iter = max_iter
-        self.eps = eps
+        self.eps_energy = eps_energy
         self.random_state = random_state
         self.params= None
         self.iteration=1
@@ -98,7 +98,7 @@ class BaseOptimizer(ABC):
 
             E_old, E_new = self.compute_expectation_value(self.state,self.hamilton), self.compute_expectation_value(new_state,self.hamilton)
             
-            if np.abs(E_new - E_old) < self.eps:
+            if np.abs(E_new - E_old) < self.eps_energy:
                 self.params = new_params
                 break
             
@@ -470,6 +470,7 @@ class VQE_one_qubit_FiniteDiff_ConstStep(
 
 class VQE_one_qubit_PSR_ConstStep_qng(
     PSR_Gradient,
+    DecayingStepSize,
     qng_finite_difference,
     real_ansatz,
     OneQubitSystem
@@ -636,7 +637,7 @@ if __name__ == "__main__":
 
     vqe_ising_real_adam_SPSA = VQE_Ising_real_PSR_Adam(
         max_iter=500,
-        learning_rate=0.01,
+        learning_rate=0.1,
         #gradient_eps=1e-6,
         store_history=True,
         reps=reps_sys,
@@ -665,14 +666,14 @@ if __name__ == "__main__":
 #   inital theta (random, mehrere)
 #   gute plots
 #   opti (quantum grad estimation, natural, via phase estimation E bestimmen, coolen opti, fancy opti)
-#   one qubit with generall ansatz
+#   one qubit with generall ansatz?
 #   H2
 #   gute ordner struktur
 
 
 #check if qng actually works(faster/ising)      check
-#do step generall
-#eps fixen
+#do step generall                               check
+#eps fixen                                      check
 #qng properly
-#psr grad png_diag in ansatz?
+
 

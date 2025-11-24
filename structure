@@ -6,11 +6,11 @@ BaseOptimizer (ABC)
 │                                           system
 │   --------------------------------------
 │
-├── n_dim_ising_triv_ansatz
+├── triv_ansatz
 │
-├── n_dim_ising_real_ansatz
+├── real_ansatz
 │   
-├── n_dim_ising_complex_ansatz
+├── complex_ansatz
 │                                           ansatz
 │-----------------------------------------
 │
@@ -26,5 +26,9 @@ BaseOptimizer (ABC)
 │
 ├── ConstantStepSize
 │
-└── DecayingStepSize
+├── DecayingStepSize
+│
+├── Adam
+│
+└── qng_finite_diff
                                             optimization
