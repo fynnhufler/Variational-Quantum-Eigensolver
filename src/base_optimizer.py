@@ -790,7 +790,7 @@ if __name__ == "__main__":
     
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
     
-    # Plot 1: All energy trajectories
+    #All energy trajectories
     ax1 = axes[0, 0]
     cmap = plt.cm.viridis
     colors = [cmap(i / len(learning_rates)) for i in range(len(learning_rates))]
@@ -806,7 +806,7 @@ if __name__ == "__main__":
     ax1.grid(True, alpha=0.3)
     ax1.legend(fontsize=10)
     
-    # Plot 2: Final energy vs learning rate
+    #Final energy vs learning rate
     ax2 = axes[0, 1]
     ax2.scatter(learning_rates, all_final_energies, c=colors, s=100, alpha=0.7, edgecolors='black')
     ax2.axhline(-np.sqrt(2), color='red', linestyle='--', linewidth=2, 
@@ -817,7 +817,7 @@ if __name__ == "__main__":
     ax2.grid(True, alpha=0.3)
     ax2.legend(fontsize=10)
     
-    # Plot 3: Convergence speed (iterations to reach threshold)
+    #Convergence speed (iterations to reach threshold)
     ax3 = axes[1, 0]
     threshold = -np.sqrt(2) + 0.01  # Within 0.01 of optimal
     iterations_to_converge = []
@@ -838,10 +838,9 @@ if __name__ == "__main__":
     ax3.set_title(f'Convergence Speed (threshold={threshold:.4f})', fontsize=14, fontweight='bold')
     ax3.grid(True, alpha=0.3)
     
-    # Plot 4: Colorbar legend for learning rates
+    #Colorbar legend for learning rates
     ax4 = axes[1, 1]
     
-    # Create sample lines for legend
     legend_elements = []
     n_legend = 5  # Show 5 representative learning rates
     indices = np.linspace(0, len(learning_rates)-1, n_legend, dtype=int)
@@ -853,7 +852,7 @@ if __name__ == "__main__":
     ax4.legend(handles=legend_elements, loc='center', fontsize=12, title='Learning Rates (Sample)')
     ax4.axis('off')
     
-    # Add summary statistics
+    #summary statistics
     best_idx = np.argmin(all_final_energies)
     worst_idx = np.argmax(all_final_energies)
     
