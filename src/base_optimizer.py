@@ -396,7 +396,9 @@ class QuantumNaturalGradient:
             natural_gradient = gradient / F
         else:
             #we might have to use a different method to compute the inverse
-            natural_gradient = np.linalg.solve(F, gradient)
+            #natural_gradient = np.linalg.solve(F, gradient)
+            #try pseudoinverse for stability
+            natural_gradient = np.linalg.pinv(F) @ gradient
         
         return params - eta * natural_gradient
 
@@ -674,7 +676,7 @@ if __name__ == "__main__":
     qngd = QNGD_Numpy(
         max_iter=100,
         learning_rate=0.1,
-        fisher_reg=1e-6,
+        fisher_reg=1e-3,
         store_history=True
     )
     
@@ -690,7 +692,7 @@ if __name__ == "__main__":
     qngd2 = QNGD_Numpy(
         max_iter=200,
         learning_rate=0.1,
-        fisher_reg=1e-6,
+        fisher_reg=1e-3,
         store_history=True
     )
     
