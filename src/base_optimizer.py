@@ -7,6 +7,13 @@ from typing import Optional, List, Tuple, Any
 from qiskit.circuit.library import RealAmplitudes
 from qiskit.circuit.library import EfficientSU2
 
+from qiskit_nature.units import DistanceUnit
+from qiskit_nature.second_q.drivers import PySCFDriver
+from qiskit_nature.second_q.mappers import JordanWignerMapper
+from qiskit_nature.second_q.circuit.library import HartreeFock
+
+
+
 
 # ============================================================================
 # BASE OPTIMIZER
@@ -288,7 +295,6 @@ class qng_finite_difference:
         Standard Gradientenabstieg: θ_new = θ_old - η * ∇E
         """
         fsm = self.fsm()
-        #print('tessst:',self.params,fsm,gradient)
         return self.params - self.step_size()*fsm @ gradient
     
     def fsm(self):
@@ -303,6 +309,8 @@ class qng_finite_difference:
                 state_i_state_j=np.vdot(state_i, state_j)
                 state_state_j=np.vdot(state, state_j)
                 g[i][j]=np.real(state_i_state_j-state_i_state*state_state_j)
+#nebendiag reichen
+#plus minus eps
         return np.linalg.pinv(g)
         
     
@@ -324,11 +332,14 @@ class qng_bda:
         """
         Standard Gradientenabstieg: θ_new = θ_old - η * ∇E
         """
-        fsm = self.step_size()
-        return self.params - fsm @ gradient
+        fsm = self.fsm()
+        #print('tessst:',self.params,fsm,gradient)
+        return self.params - self.step_size()*fsm @ gradient
     
     def fsm(self):
         g = np.zeros((self.params_dim,self.params_dim))
+        # here should be the code
+        
 
     #inital operator
     #determine block
@@ -450,6 +461,50 @@ class n_dim_ising(BaseOptimizer):
         for i in range(self.dim):
             tens_pauli=np.kron(tens_pauli,pauli_z_i_j[i])
         return tens_pauli
+    
+
+class hydrogen(BaseOptimizer):
+    def __init__(self,dist,**kwargs):
+        super().__init__(**kwargs)
+        self.dim=4
+        self._setup_hamiltonian(dist)
+        self._setup_initial_state()
+
+    def _setup_hamiltonian(self,dist):
+        driver = PySCFDriver(
+            atom=f"H 0 0 {-dist/2}; H 0 0 {dist/2}",  # symmetric around origin
+            basis="sto3g",
+            charge=0,
+            spin=0,
+            unit=DistanceUnit.ANGSTROM,
+        )
+        problem = driver.run()
+
+        # electronic (fermionic) Hamiltonian in second quantization
+        second_q_op = problem.hamiltonian.second_q_op()
+
+        # 2) Map to qubits using Jordan–Wigner (no two-qubit reduction)
+        self.mapper = JordanWignerMapper()
+        qubit_op = self.mapper.map(second_q_op)   # SparsePauliOp
+
+        # 3) Convert to matrix and add nuclear repulsion
+        H_el = qubit_op.to_matrix()          # 16x16 electronic part
+        enuc = problem.nuclear_repulsion_energy
+        self.hamilton = H_el + enuc * np.eye(H_el.shape[0], dtype=complex)
+
+
+    
+    def _setup_initial_state(self):
+        
+        #self.initial_state=Statevector.from_instruction(QuantumCircuit(self.dim))
+
+        hf_circuit = HartreeFock(
+            num_spatial_orbitals=2,
+            num_particles=(1, 1),
+            qubit_mapper=self.mapper,
+        )
+        
+        self.initial_state = Statevector.from_instruction(hf_circuit)
 
 
 
@@ -530,143 +585,207 @@ class VQE_Ising_real_PSR_Adam(
     """VQE mit NumPy, finiten Differenzen und konstanter Schrittweite"""
     pass
 
+class VQE_hydrogen_real_PSR_qng(
+    PSR_Gradient,
+    DecayingStepSize,
+    qng_finite_difference,
+    real_ansatz,
+    hydrogen
+):
+    """VQE mit NumPy, finiten Differenzen und konstanter Schrittweite"""
+    pass
+
 
 # ============================================================================
 # Example
 # ============================================================================
 
 if __name__ == "__main__":
-    print("=" * 60)
-    print("VQE Optimization - one qubit (VQE_one_qubit_PSR_ConstStep)")
-    print("=" * 60)
+    # print("=" * 60)
+    # print("VQE Optimization - one qubit (VQE_one_qubit_PSR_ConstStep)")
+    # print("=" * 60)
 
-    vqe_one_qubit_PSR = VQE_one_qubit_PSR_ConstStep(
-        max_iter=500,
-        learning_rate=0.01,
-        store_history=True,
-        eps=1e-6,
-        reps=0
-    )
+#     vqe_one_qubit_PSR = VQE_one_qubit_PSR_ConstStep(
+#         max_iter=500,
+#         learning_rate=0.01,
+#         store_history=True,
+#         eps=1e-6,
+#         reps=0
+#     )
     
-    optimal_theta, optimal_energy = vqe_one_qubit_PSR.run(initial_params=np.array([np.pi/2]))
+#     optimal_theta, optimal_energy = vqe_one_qubit_PSR.run(initial_params=np.array([np.pi/2]))
     
-    print(f"\nOptimal θ: {optimal_theta}")
-    print(f"Optimal Energy: {optimal_energy:.6f}")
-    print(f"Theoretical minimum: {-np.sqrt(2):.6f}")
+#     print(f"\nOptimal θ: {optimal_theta}")
+#     print(f"Optimal Energy: {optimal_energy:.6f}")
+#     print(f"Theoretical minimum: {-np.sqrt(2):.6f}")
     
-    vqe_one_qubit_PSR.plot_results()
+#     vqe_one_qubit_PSR.plot_results()
     
 
 
 
-    print("=" * 60)
-    print("VQE Optimization - one qubit (VQE_one_qubit_PSR_ConstStep_qng)")
-    print("=" * 60)
+#     print("=" * 60)
+#     print("VQE Optimization - one qubit (VQE_one_qubit_PSR_ConstStep_qng)")
+#     print("=" * 60)
 
-    vqe_one_qubit_PSR = VQE_one_qubit_PSR_ConstStep_qng(
-        max_iter=500,
-        #learning_rate=0.01,
-        store_history=True,
-        qng_eps=1e-6,
-        reps=0
-    )
+#     vqe_one_qubit_PSR = VQE_one_qubit_PSR_ConstStep_qng(
+#         max_iter=500,
+#         #learning_rate=0.01,
+#         store_history=True,
+#         qng_eps=1e-6,
+#         reps=0
+#     )
     
-    optimal_theta, optimal_energy = vqe_one_qubit_PSR.run(initial_params=np.array([np.pi/2]))
+#     optimal_theta, optimal_energy = vqe_one_qubit_PSR.run(initial_params=np.array([np.pi/2]))
     
-    print(f"\nOptimal θ: {optimal_theta}")
-    print(f"Optimal Energy: {optimal_energy:.6f}")
-    print(f"Theoretical minimum: {-np.sqrt(2):.6f}")
+#     print(f"\nOptimal θ: {optimal_theta}")
+#     print(f"Optimal Energy: {optimal_energy:.6f}")
+#     print(f"Theoretical minimum: {-np.sqrt(2):.6f}")
     
-    vqe_one_qubit_PSR.plot_results()
+#     vqe_one_qubit_PSR.plot_results()
 
-#--------------------------------------------------------------------------------------------------------
+# #--------------------------------------------------------------------------------------------------------
 
+
+#     print("\n" + "=" * 60)
+#     print("VQE Optimization - Ising (VQE_Ising_real_PSR_qng)")
+#     print("=" * 60)
+
+#     J_sys = np.array([
+#         [0.0,  1.0,  0.0],
+#         [1.0,  0.0,  0.8],
+#         [0.0,  0.8,  0.0],
+#     ], dtype=float)
+
+#     h_sys = np.array([0.2, -0.1, 0.05], dtype=float)
+
+#     reps_sys=1
+
+#     vqe_ising_real = VQE_Ising_real_PSR_qng(
+#         max_iter=200,
+#         #learning_rate=0.01,
+#         store_history=True,
+#         reps=reps_sys,
+#         J=J_sys,
+#         h=h_sys
+#     )
+    
+#     dim_theta=(reps_sys+1)*J_sys.shape[0]
+#     theta=np.zeros(dim_theta)
+#     for i in range(dim_theta):
+#         theta[i]=np.pi/dim_theta*i
+
+#     optimal_theta, optimal_energy = vqe_ising_real.run(initial_params=theta)
+
+#     print(f"\nOptimal θ: {optimal_theta}")
+#     print(f"Optimal Energy: {optimal_energy:.6f}")
+#     print(f"Theoretical minimum: {-1.95:.6f}")
+
+#     vqe_ising_real.plot_results()
+
+
+
+
+#     print("\n" + "=" * 60)
+#     print("VQE Optimization - Ising - (VQE_Ising_real_PSR_Adam)")
+#     print("=" * 60)
+    
+#     J_sys = np.array([
+#         [0.0,  1.0,  0.0],
+#         [1.0,  0.0,  0.8],
+#         [0.0,  0.8,  0.0],
+#     ], dtype=float)
+
+#     h_sys = np.array([0.2, -0.1, 0.05], dtype=float)
+
+#     reps_sys=1
+
+#     vqe_ising_real_adam_SPSA = VQE_Ising_real_PSR_Adam(
+#         max_iter=500,
+#         learning_rate=0.1,
+#         #gradient_eps=1e-6,
+#         store_history=True,
+#         reps=reps_sys,
+#         J=J_sys,
+#         h=h_sys
+#     )
+#     dim_theta=(reps_sys+1)*J_sys.shape[0]
+#     theta=np.zeros(dim_theta)
+#     for i in range(dim_theta):
+#         theta[i]=np.pi/dim_theta*i
+
+#     optimal_theta, optimal_energy = vqe_ising_real_adam_SPSA.run(initial_params=theta)
+    
+
+#     print(f"\nOptimal θ: {optimal_theta}")
+#     print(f"Optimal Energy: {optimal_energy:.6f}")
+#     print(f"Theoretical minimum: {-1.95:.6f}")
+
+#     vqe_ising_real_adam_SPSA.plot_results()
+
+
+
+
+    #---------------------------------------------------------------------------------------
+
+    
+
+
+
+
+    
 
     print("\n" + "=" * 60)
-    print("VQE Optimization - Ising (VQE_Ising_real_PSR_qng)")
+    print("VQE Optimization - Ising (VQE_hydrogen_real_PSR_qng)")
     print("=" * 60)
 
-    J_sys = np.array([
-        [0.0,  1.0,  0.0],
-        [1.0,  0.0,  0.8],
-        [0.0,  0.8,  0.0],
-    ], dtype=float)
 
-    h_sys = np.array([0.2, -0.1, 0.05], dtype=float)
+    hist=[]
+    d_values = np.linspace(0.1, 2.5, 2)   # 0.25 Å to 2.5 Å
+    for d_sys in d_values:
+        print(d_sys)
+        dim=4
+        reps_sys=2
 
-    reps_sys=1
-
-    vqe_ising_real = VQE_Ising_real_PSR_qng(
-        max_iter=200,
-        #learning_rate=0.01,
-        store_history=True,
-        reps=reps_sys,
-        J=J_sys,
-        h=h_sys
-    )
-    
-    dim_theta=(reps_sys+1)*J_sys.shape[0]
-    theta=np.zeros(dim_theta)
-    for i in range(dim_theta):
-        theta[i]=np.pi/dim_theta*i
-
-    optimal_theta, optimal_energy = vqe_ising_real.run(initial_params=theta)
-
-    print(f"\nOptimal θ: {optimal_theta}")
-    print(f"Optimal Energy: {optimal_energy:.6f}")
-    print(f"Theoretical minimum: {-1.95:.6f}")
-
-    vqe_ising_real.plot_results()
+        vqe_hydrogen_real = VQE_hydrogen_real_PSR_qng(
+            max_iter=200,
+            learning_rate=0.01,
+            store_history=True,
+            reps=reps_sys,
+            dist=d_sys
+        )
 
 
 
 
-    print("\n" + "=" * 60)
-    print("VQE Optimization - Ising - (VQE_Ising_real_PSR_Adam)")
-    print("=" * 60)
-    
-    J_sys = np.array([
-        [0.0,  1.0,  0.0],
-        [1.0,  0.0,  0.8],
-        [0.0,  0.8,  0.0],
-    ], dtype=float)
+        dim_theta=(reps_sys+1)*dim
+        theta=np.zeros(dim_theta)
+        for i in range(dim_theta):
+            theta[i]=np.pi/dim_theta*i
 
-    h_sys = np.array([0.2, -0.1, 0.05], dtype=float)
+        optimal_theta, optimal_energy = vqe_hydrogen_real.run(initial_params=theta)
 
-    reps_sys=1
+        print(f"\nOptimal θ: {optimal_theta}")
+        print(f"Optimal Energy: {optimal_energy:.6f}")
+        print(f"Theoretical minimum: {-1.95:.6f}")
 
-    vqe_ising_real_adam_SPSA = VQE_Ising_real_PSR_Adam(
-        max_iter=500,
-        learning_rate=0.1,
-        #gradient_eps=1e-6,
-        store_history=True,
-        reps=reps_sys,
-        J=J_sys,
-        h=h_sys
-    )
-    dim_theta=(reps_sys+1)*J_sys.shape[0]
-    theta=np.zeros(dim_theta)
-    for i in range(dim_theta):
-        theta[i]=np.pi/dim_theta*i
+        hist.append(optimal_energy)
+        vqe_hydrogen_real.plot_results()
 
-    optimal_theta, optimal_energy = vqe_ising_real_adam_SPSA.run(initial_params=theta)
-    
-
-    print(f"\nOptimal θ: {optimal_theta}")
-    print(f"Optimal Energy: {optimal_energy:.6f}")
-    print(f"Theoretical minimum: {-1.95:.6f}")
-
-    vqe_ising_real_adam_SPSA.plot_results()
-
-    
+    #print(hist)
+    plt.plot(d_values, hist, "o-")
+    plt.xlabel("H-H distance (Å)")
+    plt.ylabel("Energy (Hartree)")
+    plt.grid(True)
+    plt.show()
 
 
 
 # to do:
-#   inital theta (random, mehrere)
-#   gute plots
-#   opti (quantum grad estimation, natural, via phase estimation E bestimmen, coolen opti, fancy opti)
-#   one qubit with generall ansatz?
+
+#   gute plots (inital theta (random, mehrere))
+#   opti (quantum grad estimation, qng real, via phase estimation E bestimmen, coolen opti)
+#   one qubit with generall ansatz?                                                                         check
 #   H2
 #   gute ordner struktur
 
@@ -674,6 +793,5 @@ if __name__ == "__main__":
 #check if qng actually works(faster/ising)      check
 #do step generall                               check
 #eps fixen                                      check
-#qng properly
 
 
