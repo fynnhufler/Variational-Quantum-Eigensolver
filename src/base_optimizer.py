@@ -741,14 +741,14 @@ if __name__ == "__main__":
 
 
     hist=[]
-    d_values = np.linspace(0.1, 2.5, 2)   # 0.25 Å to 2.5 Å
+    d_values = np.linspace(0.1, 2.5, 20)   # 0.25 Å to 2.5 Å
     for d_sys in d_values:
         print(d_sys)
         dim=4
-        reps_sys=2
+        reps_sys=0
 
         vqe_hydrogen_real = VQE_hydrogen_real_PSR_qng(
-            max_iter=200,
+            max_iter=500,
             learning_rate=0.01,
             store_history=True,
             reps=reps_sys,
@@ -770,7 +770,7 @@ if __name__ == "__main__":
         print(f"Theoretical minimum: {-1.95:.6f}")
 
         hist.append(optimal_energy)
-        vqe_hydrogen_real.plot_results()
+        #vqe_hydrogen_real.plot_results()
 
     #print(hist)
     plt.plot(d_values, hist, "o-")
