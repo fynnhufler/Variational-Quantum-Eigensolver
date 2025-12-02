@@ -230,69 +230,49 @@ class SPSAGradient:
 
 
 # ============================================================================
-# FISHER INFORMATION MATRIX
+# FISHER INFORMATION MATRIX (KORRIGIERTE VERSION!)
 # ============================================================================
 
 class FisherInformationMixin:
     """
-    Compute Fisher Information Matrix using parameter shift rule.
+    Compute Fisher Information Matrix using numerical derivatives.
     This is the quantum geometric tensor for pure states.
+    
+    KORRIGIERT: Verwendet jetzt die korrekte Formel:
+    F_ij = Re[⟨∂ᵢψ|∂ⱼψ⟩ - ⟨∂ᵢψ|ψ⟩⟨ψ|∂ⱼψ⟩]
     """
-    def __init__(self, *args, fisher_reg: float = 1e-6, **kwargs):
+    def __init__(self, *args, fisher_reg: float = 1e-6, fisher_eps: float = 1e-6, **kwargs):
         self.fisher_reg = fisher_reg
+        self.fisher_eps = fisher_eps  # Epsilon für numerische Ableitungen
         super().__init__(*args, **kwargs)
     
     def compute_fisher_information(self) -> np.ndarray:
         """
         Compute Fisher Information Matrix.
-        F_ij = Re[⟨∂_i ψ|∂_j ψ⟩ - ⟨∂_i ψ|ψ⟩⟨ψ|∂_j ψ⟩]
+        F_ij = Re[⟨∂ᵢψ|∂ⱼψ⟩ - ⟨∂ᵢψ|ψ⟩⟨ψ|∂ⱼψ⟩]
+        
+        Verwendet numerische Ableitungen: ∂ᵢψ ≈ (ψ(θ+ε) - ψ(θ))/ε
         """
         n = self.params_dim
         F = np.zeros((n, n))
+        state = self.state.data
         
+        # Berechne alle Ableitungen ∂ᵢψ
+        state_derivs = []
         for i in range(n):
-            for j in range(i, n):
-                if i == j:
-                    # Diagonal: shift only parameter i
-                    params_plus = self.params.copy()
-                    params_plus[i] += np.pi/2
-                    
-                    params_minus = self.params.copy()
-                    params_minus[i] -= np.pi/2
-                    
-                    state_plus = self.get_state(params_plus)
-                    state_minus = self.get_state(params_minus)
-                    
-                    overlap = np.vdot(state_plus.data, state_minus.data)
-                    F[i, i] = 0.5 * (1.0 - np.abs(overlap)**2)
-                else:
-                    # Off-diagonal: use 4-point formula
-                    params_pp = self.params.copy()
-                    params_pp[i] += np.pi/2
-                    params_pp[j] += np.pi/2
-                    
-                    params_mm = self.params.copy()
-                    params_mm[i] -= np.pi/2
-                    params_mm[j] -= np.pi/2
-                    
-                    params_pm = self.params.copy()
-                    params_pm[i] += np.pi/2
-                    params_pm[j] -= np.pi/2
-                    
-                    params_mp = self.params.copy()
-                    params_mp[i] -= np.pi/2
-                    params_mp[j] += np.pi/2
-                    
-                    state_pp = self.get_state(params_pp)
-                    state_mm = self.get_state(params_mm)
-                    state_pm = self.get_state(params_pm)
-                    state_mp = self.get_state(params_mp)
-                    
-                    overlap_pp_mm = np.vdot(state_pp.data, state_mm.data)
-                    overlap_pm_mp = np.vdot(state_pm.data, state_mp.data)
-                    
-                    F[i, j] = 0.5 * (1.0 - np.real(overlap_pp_mm * np.conj(overlap_pm_mp)))
-                    F[j, i] = F[i, j]  # Symmetric
+            params_shifted = self.params.copy()
+            params_shifted[i] += self.fisher_eps
+            state_shifted = self.get_state(params_shifted)
+            state_deriv = (state_shifted.data - state) / self.fisher_eps
+            state_derivs.append(state_deriv)
+        
+        # Berechne Fisher-Information Matrix
+        for i in range(n):
+            state_i_state = np.vdot(state_derivs[i], state)
+            for j in range(n):
+                state_i_state_j = np.vdot(state_derivs[i], state_derivs[j])
+                state_state_j = np.vdot(state, state_derivs[j])
+                F[i, j] = np.real(state_i_state_j - state_i_state * state_state_j)
         
         # Add regularization
         F += self.fisher_reg * np.eye(n)
@@ -318,25 +298,27 @@ class QuantumNaturalGradient:
         F = self.compute_fisher_information()
         
         if np.isscalar(F):
-            #Scalar case (single parameter)
+            # Scalar case (single parameter)
             if F < 1e-10:
                 natural_gradient = gradient
             else:
                 natural_gradient = gradient / F
         else:
-            #Matrix case - check condition number
+            # Matrix case - check condition number
             cond = np.linalg.cond(F)
             if cond > 1e12:
-                #Too ill-conditioned, use regular gradient
+                # Too ill-conditioned, use regular gradient
+                print(f"Warning: Fisher matrix ill-conditioned (cond={cond:.2e}), using regular gradient")
                 natural_gradient = gradient
             else:
-                #Use pseudoinverse for stability
+                # Use pseudoinverse for stability
                 try:
                     natural_gradient = np.linalg.pinv(F, rcond=1e-10) @ gradient
                 except:
+                    print("Warning: Fisher inversion failed, using regular gradient")
                     natural_gradient = gradient
         
-        #Clip gradient norm
+        # Clip gradient norm
         if np.isscalar(natural_gradient):
             grad_norm = abs(natural_gradient)
             if grad_norm > self.max_gradient_norm:
@@ -385,25 +367,25 @@ class Adam:
         self.eps = eps
         self.m = None
         self.v = None
-        self.t = 0  #Adam iteration counter
+        self.t = 0  # Adam iteration counter
     
     def _update(self, gradient: np.ndarray) -> np.ndarray:
-        #Lazy initialization
+        # Lazy initialization
         if self.m is None or self.v is None:
             self.m = np.zeros_like(self.params, dtype=float)
             self.v = np.zeros_like(self.params, dtype=float)
         
         self.t += 1
         
-        #Update biased first and second moment estimates
+        # Update biased first and second moment estimates
         self.m = self.beta1 * self.m + (1.0 - self.beta1) * gradient
         self.v = self.beta2 * self.v + (1.0 - self.beta2) * (gradient * gradient)
         
-        #Bias correction
+        # Bias correction
         m_hat = self.m / (1.0 - self.beta1 ** self.t)
         v_hat = self.v / (1.0 - self.beta2 ** self.t)
         
-        #Parameter update
+        # Parameter update
         params_new = self.params - self.eta * m_hat / (np.sqrt(v_hat) + self.eps)
         return params_new
 
@@ -523,13 +505,13 @@ class HydrogenMolecule(BaseOptimizer):
     """
     def __init__(self, distance: float, **kwargs):
         super().__init__(**kwargs)
-        self.dim = 4  #4 qubits for H2 with sto-3g
+        self.dim = 4  # 4 qubits for H2 with sto-3g
         self.distance = distance
         self._setup_hamiltonian(distance)
         self._setup_initial_state()
     
     def _setup_hamiltonian(self, distance: float):
-        #Run PySCF
+        # Run PySCF
         driver = PySCFDriver(
             atom=f"H 0 0 {-distance/2}; H 0 0 {distance/2}",
             basis="sto3g",
@@ -539,20 +521,20 @@ class HydrogenMolecule(BaseOptimizer):
         )
         problem = driver.run()
         
-        #Get fermionic Hamiltonian
+        # Get fermionic Hamiltonian
         second_q_op = problem.hamiltonian.second_q_op()
         
-        #Map to qubits using Jordan-Wigner
+        # Map to qubits using Jordan-Wigner
         self.mapper = JordanWignerMapper()
         qubit_op = self.mapper.map(second_q_op)
         
-        #Convert to matrix and add nuclear repulsion
+        # Convert to matrix and add nuclear repulsion
         H_el = qubit_op.to_matrix()
         enuc = problem.nuclear_repulsion_energy
         self.hamilton = Operator(H_el + enuc * np.eye(H_el.shape[0], dtype=complex))
     
     def _setup_initial_state(self):
-        #Use Hartree-Fock initial state
+        # Use Hartree-Fock initial state
         hf_circuit = HartreeFock(
             num_spatial_orbitals=2,
             num_particles=(1, 1),
@@ -565,7 +547,7 @@ class HydrogenMolecule(BaseOptimizer):
 # VQE IMPLEMENTATIONS
 # ============================================================================
 
-#SIngle Qubit Systems
+# Single Qubit Systems
 
 class VQE_OneQubit_FiniteDiff_Const(
     FiniteDifferenceGradient,
@@ -633,7 +615,7 @@ class VQE_Ising_SPSA_Adam(
     pass
 
 
-#H-Molecule
+# H-Molecule
 
 class VQE_H2_QNG(
     ParameterShiftGradient,
@@ -663,7 +645,7 @@ class VQE_H2_PSR_Adam(
 
 if __name__ == "__main__":
     print("=" * 70)
-    print("EXAMPLE 1: Single Qubit System with QNG")
+    print("EXAMPLE 1: Single Qubit System with QNG (KORRIGIERT)")
     print("=" * 70)
     
     vqe = VQE_OneQubit_QNG(
@@ -671,6 +653,7 @@ if __name__ == "__main__":
         learning_rate=0.05,
         decay=0.01,
         fisher_reg=1e-6,
+        fisher_eps=1e-6,
         max_gradient_norm=1.0,
         store_history=True,
         reps=0
@@ -707,7 +690,7 @@ if __name__ == "__main__":
         h=h
     )
     
-    #Initialize parameters
+    # Initialize parameters
     n_params = (vqe_ising.reps + 1) * 3  # 3 qubits
     theta_init = np.random.uniform(0, 2*np.pi, n_params)
     
@@ -720,7 +703,7 @@ if __name__ == "__main__":
     
     
     print("\n" + "=" * 70)
-    print("EXAMPLE 3: H2 Potential Energy Curve with QNG")
+    print("EXAMPLE 3: H2 Potential Energy Curve with QNG (KORRIGIERT)")
     print("=" * 70)
     
     distances = np.linspace(0.5, 2.5, 10)
@@ -729,9 +712,12 @@ if __name__ == "__main__":
     for d in distances:
         print(f"\nDistance: {d:.2f} Å")
         
-        vqe_h2 = VQE_H2_PSR_Adam(
+        vqe_h2 = VQE_H2_QNG(
             max_iter=100,
             learning_rate=0.05,
+            decay=0.01,
+            fisher_reg=1e-6,
+            fisher_eps=1e-6,
             store_history=False,
             reps=1,
             distance=d
@@ -745,7 +731,7 @@ if __name__ == "__main__":
         
         print(f"Energy: {E_opt:.6f} Ha")
     
-    #Plot potential energy curve
+    # Plot potential energy curve
     plt.figure(figsize=(10, 6))
     plt.plot(distances, energies, 'o-', linewidth=2, markersize=8)
     plt.xlabel('H-H Distance (Å)', fontsize=12)
