@@ -496,8 +496,6 @@ class hydrogen(BaseOptimizer):
     
     def _setup_initial_state(self):
         
-        #self.initial_state=Statevector.from_instruction(QuantumCircuit(self.dim))
-
         hf_circuit = HartreeFock(
             num_spatial_orbitals=2,
             num_particles=(1, 1),
@@ -505,6 +503,8 @@ class hydrogen(BaseOptimizer):
         )
         
         self.initial_state = Statevector.from_instruction(hf_circuit)
+
+        #self.initial_state=Statevector.from_instruction(QuantumCircuit(self.dim))
 
 
 
@@ -741,14 +741,14 @@ if __name__ == "__main__":
 
 
     hist=[]
-    d_values = np.linspace(0.1, 2.5, 20)   # 0.25 Å to 2.5 Å
+    d_values = np.linspace(0.15, 4.0, 30)   # in Å
     for d_sys in d_values:
         print(d_sys)
         dim=4
         reps_sys=0
 
         vqe_hydrogen_real = VQE_hydrogen_real_PSR_qng(
-            max_iter=500,
+            max_iter=200,
             learning_rate=0.01,
             store_history=True,
             reps=reps_sys,
