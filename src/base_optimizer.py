@@ -241,8 +241,7 @@ class FisherInformationMixin:
     KORRIGIERT: Verwendet jetzt die korrekte Formel:
     F_ij = Re[⟨∂ᵢψ|∂ⱼψ⟩ - ⟨∂ᵢψ|ψ⟩⟨ψ|∂ⱼψ⟩]
     """
-    def __init__(self, *args, fisher_reg: float = 1e-6, fisher_eps: float = 1e-6, **kwargs):
-        self.fisher_reg = fisher_reg
+    def __init__(self, *args, fisher_eps: float = 1e-6, **kwargs):
         self.fisher_eps = fisher_eps  # Epsilon für numerische Ableitungen
         super().__init__(*args, **kwargs)
     
@@ -274,8 +273,7 @@ class FisherInformationMixin:
                 state_state_j = np.vdot(state, state_derivs[j])
                 F[i, j] = np.real(state_i_state_j - state_i_state * state_state_j)
         
-        # Add regularization
-        F += self.fisher_reg * np.eye(n)
+        # KEINE Regularisierung mehr - pinv macht das intern besser!
         
         return F if n > 1 else F[0, 0]
 
@@ -289,8 +287,7 @@ class QuantumNaturalGradient:
     Update using natural gradient: θ_new = θ_old - η * F^(-1) * ∇E
     Includes numerical stability checks.
     """
-    def __init__(self, *args, max_gradient_norm: float = 1.0, **kwargs):
-        self.max_gradient_norm = max_gradient_norm
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
     
     def _update(self, gradient: np.ndarray) -> np.ndarray:
@@ -311,22 +308,14 @@ class QuantumNaturalGradient:
                 print(f"Warning: Fisher matrix ill-conditioned (cond={cond:.2e}), using regular gradient")
                 natural_gradient = gradient
             else:
-                # Use pseudoinverse for stability
+                # Use pseudoinverse with default rcond (wie Version 2!)
                 try:
-                    natural_gradient = np.linalg.pinv(F, rcond=1e-10) @ gradient
+                    natural_gradient = np.linalg.pinv(F) @ gradient
                 except:
                     print("Warning: Fisher inversion failed, using regular gradient")
                     natural_gradient = gradient
         
-        # Clip gradient norm
-        if np.isscalar(natural_gradient):
-            grad_norm = abs(natural_gradient)
-            if grad_norm > self.max_gradient_norm:
-                natural_gradient = self.max_gradient_norm * np.sign(natural_gradient)
-        else:
-            grad_norm = np.linalg.norm(natural_gradient)
-            if grad_norm > self.max_gradient_norm:
-                natural_gradient = natural_gradient * (self.max_gradient_norm / grad_norm)
+        # KEIN Gradient Clipping mehr! (wie Version 2)
         
         return self.params - eta * natural_gradient
 
@@ -645,16 +634,14 @@ class VQE_H2_PSR_Adam(
 
 if __name__ == "__main__":
     print("=" * 70)
-    print("EXAMPLE 1: Single Qubit System with QNG (KORRIGIERT)")
+    print("EXAMPLE 1: Single Qubit System with QNG (OPTIMIERT)")
     print("=" * 70)
     
     vqe = VQE_OneQubit_QNG(
         max_iter=100,
         learning_rate=0.05,
         decay=0.01,
-        fisher_reg=1e-6,
         fisher_eps=1e-6,
-        max_gradient_norm=1.0,
         store_history=True,
         reps=0
     )
@@ -703,7 +690,7 @@ if __name__ == "__main__":
     
     
     print("\n" + "=" * 70)
-    print("EXAMPLE 3: H2 Potential Energy Curve with QNG (KORRIGIERT)")
+    print("EXAMPLE 3: H2 Potential Energy Curve with QNG (OPTIMIERT)")
     print("=" * 70)
     
     distances = np.linspace(0.5, 2.5, 10)
@@ -716,7 +703,6 @@ if __name__ == "__main__":
             max_iter=100,
             learning_rate=0.05,
             decay=0.01,
-            fisher_reg=1e-6,
             fisher_eps=1e-6,
             store_history=False,
             reps=1,
