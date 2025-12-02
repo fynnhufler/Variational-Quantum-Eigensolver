@@ -759,15 +759,15 @@ if __name__ == "__main__":
     print("EXAMPLE 3: H2 Potential Energy Curve with QNG")
     print("=" * 70)
     
-    distances = np.linspace(0.15, 4.0, 10)
+    distances = np.linspace(0.2, 3.0, 10)
     energies = []
     
     for d in distances:
         print(f"\nDistance: {d:.2f} Å")
         
         vqe_h2 = VQE_H2_QNG(
-            max_iter=200,
-            learning_rate=0.01,
+            max_iter=150,
+            learning_rate=0.05,
             store_history=False,
             reps=0,
             distance=d
