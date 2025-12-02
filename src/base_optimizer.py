@@ -233,120 +233,161 @@ class SPSAGradient:
 # FISHER INFORMATION MATRIX
 # ============================================================================
 
-class FisherInformationMixin:
-    """
-    Compute Fisher Information Matrix using parameter shift rule.
-    This is the quantum geometric tensor for pure states.
-    """
-    def __init__(self, *args, fisher_reg: float = 1e-6, **kwargs):
-        self.fisher_reg = fisher_reg
-        super().__init__(*args, **kwargs)
+# class FisherInformationMixin:
+#     """
+#     Compute Fisher Information Matrix using parameter shift rule.
+#     This is the quantum geometric tensor for pure states.
+#     """
+#     def __init__(self, *args, fisher_reg: float = 1e-6, **kwargs):
+#         self.fisher_reg = fisher_reg
+#         super().__init__(*args, **kwargs)
     
-    def compute_fisher_information(self) -> np.ndarray:
-        """
-        Compute Fisher Information Matrix.
-        F_ij = Re[⟨∂_i ψ|∂_j ψ⟩ - ⟨∂_i ψ|ψ⟩⟨ψ|∂_j ψ⟩]
-        """
-        n = self.params_dim
-        F = np.zeros((n, n))
+#     def compute_fisher_information(self) -> np.ndarray:
+#         """
+#         Compute Fisher Information Matrix.
+#         F_ij = Re[⟨∂_i ψ|∂_j ψ⟩ - ⟨∂_i ψ|ψ⟩⟨ψ|∂_j ψ⟩]
+#         """
+#         n = self.params_dim
+#         F = np.zeros((n, n))
         
-        for i in range(n):
-            for j in range(i, n):
-                if i == j:
-                    # Diagonal: shift only parameter i
-                    params_plus = self.params.copy()
-                    params_plus[i] += np.pi/2
+#         for i in range(n):
+#             for j in range(i, n):
+#                 if i == j:
+#                     # Diagonal: shift only parameter i
+#                     params_plus = self.params.copy()
+#                     params_plus[i] += np.pi/2
                     
-                    params_minus = self.params.copy()
-                    params_minus[i] -= np.pi/2
+#                     params_minus = self.params.copy()
+#                     params_minus[i] -= np.pi/2
                     
-                    state_plus = self.get_state(params_plus)
-                    state_minus = self.get_state(params_minus)
+#                     state_plus = self.get_state(params_plus)
+#                     state_minus = self.get_state(params_minus)
                     
-                    overlap = np.vdot(state_plus.data, state_minus.data)
-                    F[i, i] = 0.5 * (1.0 - np.abs(overlap)**2)
-                else:
-                    # Off-diagonal: use 4-point formula
-                    params_pp = self.params.copy()
-                    params_pp[i] += np.pi/2
-                    params_pp[j] += np.pi/2
+#                     overlap = np.vdot(state_plus.data, state_minus.data)
+#                     F[i, i] = 0.5 * (1.0 - np.abs(overlap)**2)
+#                 else:
+#                     # Off-diagonal: use 4-point formula
+#                     params_pp = self.params.copy()
+#                     params_pp[i] += np.pi/2
+#                     params_pp[j] += np.pi/2
                     
-                    params_mm = self.params.copy()
-                    params_mm[i] -= np.pi/2
-                    params_mm[j] -= np.pi/2
+#                     params_mm = self.params.copy()
+#                     params_mm[i] -= np.pi/2
+#                     params_mm[j] -= np.pi/2
                     
-                    params_pm = self.params.copy()
-                    params_pm[i] += np.pi/2
-                    params_pm[j] -= np.pi/2
+#                     params_pm = self.params.copy()
+#                     params_pm[i] += np.pi/2
+#                     params_pm[j] -= np.pi/2
                     
-                    params_mp = self.params.copy()
-                    params_mp[i] -= np.pi/2
-                    params_mp[j] += np.pi/2
+#                     params_mp = self.params.copy()
+#                     params_mp[i] -= np.pi/2
+#                     params_mp[j] += np.pi/2
                     
-                    state_pp = self.get_state(params_pp)
-                    state_mm = self.get_state(params_mm)
-                    state_pm = self.get_state(params_pm)
-                    state_mp = self.get_state(params_mp)
+#                     state_pp = self.get_state(params_pp)
+#                     state_mm = self.get_state(params_mm)
+#                     state_pm = self.get_state(params_pm)
+#                     state_mp = self.get_state(params_mp)
                     
-                    overlap_pp_mm = np.vdot(state_pp.data, state_mm.data)
-                    overlap_pm_mp = np.vdot(state_pm.data, state_mp.data)
+#                     overlap_pp_mm = np.vdot(state_pp.data, state_mm.data)
+#                     overlap_pm_mp = np.vdot(state_pm.data, state_mp.data)
                     
-                    F[i, j] = 0.5 * (1.0 - np.real(overlap_pp_mm * np.conj(overlap_pm_mp)))
-                    F[j, i] = F[i, j]  # Symmetric
+#                     F[i, j] = 0.5 * (1.0 - np.real(overlap_pp_mm * np.conj(overlap_pm_mp)))
+#                     F[j, i] = F[i, j]  # Symmetric
         
-        # Add regularization
-        F += self.fisher_reg * np.eye(n)
+#         # Add regularization
+#         F += self.fisher_reg * np.eye(n)
         
-        return F if n > 1 else F[0, 0]
+#         return F if n > 1 else F[0, 0]
 
 
 # ============================================================================
 # QUANTUM NATURAL GRADIENT
 # ============================================================================
 
-class QuantumNaturalGradient:
-    """
-    Update using natural gradient: θ_new = θ_old - η * F^(-1) * ∇E
-    Includes numerical stability checks.
-    """
-    def __init__(self, *args, max_gradient_norm: float = 1.0, **kwargs):
-        self.max_gradient_norm = max_gradient_norm
-        super().__init__(*args, **kwargs)
+# class QuantumNaturalGradient:
+#     """
+#     Update using natural gradient: θ_new = θ_old - η * F^(-1) * ∇E
+#     Includes numerical stability checks.
+#     """
+#     def __init__(self, *args, max_gradient_norm: float = 1.0, **kwargs):
+#         self.max_gradient_norm = max_gradient_norm
+#         super().__init__(*args, **kwargs)
     
-    def _update(self, gradient: np.ndarray) -> np.ndarray:
-        eta = self.step_size()
-        F = self.compute_fisher_information()
+#     def _update(self, gradient: np.ndarray) -> np.ndarray:
+#         eta = self.step_size()
+#         F = self.compute_fisher_information()
         
-        if np.isscalar(F):
-            #Scalar case (single parameter)
-            if F < 1e-10:
-                natural_gradient = gradient
-            else:
-                natural_gradient = gradient / F
-        else:
-            #Matrix case - check condition number
-            cond = np.linalg.cond(F)
-            if cond > 1e12:
-                #Too ill-conditioned, use regular gradient
-                natural_gradient = gradient
-            else:
-                #Use pseudoinverse for stability
-                try:
-                    natural_gradient = np.linalg.pinv(F, rcond=1e-10) @ gradient
-                except:
-                    natural_gradient = gradient
+#         if np.isscalar(F):
+#             #Scalar case (single parameter)
+#             if F < 1e-10:
+#                 natural_gradient = gradient
+#             else:
+#                 natural_gradient = gradient / F
+#         else:
+#             #Matrix case - check condition number
+#             cond = np.linalg.cond(F)
+#             if cond > 1e12:
+#                 #Too ill-conditioned, use regular gradient
+#                 natural_gradient = gradient
+#             else:
+#                 #Use pseudoinverse for stability
+#                 try:
+#                     natural_gradient = np.linalg.pinv(F, rcond=1e-10) @ gradient
+#                 except:
+#                     natural_gradient = gradient
         
-        #Clip gradient norm
-        if np.isscalar(natural_gradient):
-            grad_norm = abs(natural_gradient)
-            if grad_norm > self.max_gradient_norm:
-                natural_gradient = self.max_gradient_norm * np.sign(natural_gradient)
-        else:
-            grad_norm = np.linalg.norm(natural_gradient)
-            if grad_norm > self.max_gradient_norm:
-                natural_gradient = natural_gradient * (self.max_gradient_norm / grad_norm)
+#         #Clip gradient norm
+#         if np.isscalar(natural_gradient):
+#             grad_norm = abs(natural_gradient)
+#             if grad_norm > self.max_gradient_norm:
+#                 natural_gradient = self.max_gradient_norm * np.sign(natural_gradient)
+#         else:
+#             grad_norm = np.linalg.norm(natural_gradient)
+#             if grad_norm > self.max_gradient_norm:
+#                 natural_gradient = natural_gradient * (self.max_gradient_norm / grad_norm)
         
-        return self.params - eta * natural_gradient
+#         return self.params - eta * natural_gradient
+
+
+
+
+class QuantumNaturalGradient:
+
+    def __init__(self, *args, qng_eps: float = 1e-6, **kwargs):
+        self.qng_eps = qng_eps
+        super().__init__(*args, **kwargs)
+
+    def _update(self, gradient: Any) -> Any:
+        """
+        Standard Gradientenabstieg: θ_new = θ_old - η * ∇E
+        """
+        fsm = self.fsm()
+        return self.params - self.step_size()*fsm @ gradient
+    
+    def fsm(self):
+        g = np.zeros((self.params_dim,self.params_dim))
+        Id=np.identity(self.params_dim, dtype=float)
+        state=self.state.data
+        for i in range(self.params_dim):
+            state_i=self.state_deriv_data(i)
+            state_i_state=np.vdot(state_i, state)
+            for j in range(self.params_dim):
+                state_j=self.state_deriv_data(j)
+                state_i_state_j=np.vdot(state_i, state_j)
+                state_state_j=np.vdot(state, state_j)
+                g[i][j]=np.real(state_i_state_j-state_i_state*state_state_j)
+#nebendiag reichen
+#plus minus eps
+        return np.linalg.pinv(g)
+        
+    
+    def state_deriv_data(self,i):
+        params_shifted=self.params.copy()
+        params_shifted[i]=self.params[i]+self.qng_eps
+        state_shifted=self.get_state(params_shifted)
+        state_data=self.state.data
+        state_shifted_data=state_shifted.data
+        return (state_shifted_data-state_data)/self.qng_eps
 
 
 # ============================================================================
@@ -589,7 +630,6 @@ class VQE_OneQubit_PSR_Adam(
 
 class VQE_OneQubit_QNG(
     ParameterShiftGradient,
-    FisherInformationMixin,
     QuantumNaturalGradient,
     DecayingStepSize,
     RealAmplitudesAnsatz,
@@ -613,7 +653,6 @@ class VQE_Ising_PSR_Adam(
 
 class VQE_Ising_QNG(
     ParameterShiftGradient,
-    FisherInformationMixin,
     QuantumNaturalGradient,
     DecayingStepSize,
     RealAmplitudesAnsatz,
@@ -637,7 +676,6 @@ class VQE_Ising_SPSA_Adam(
 
 class VQE_H2_QNG(
     ParameterShiftGradient,
-    FisherInformationMixin,
     QuantumNaturalGradient,
     DecayingStepSize,
     RealAmplitudesAnsatz,
@@ -670,8 +708,6 @@ if __name__ == "__main__":
         max_iter=100,
         learning_rate=0.05,
         decay=0.01,
-        fisher_reg=1e-6,
-        max_gradient_norm=1.0,
         store_history=True,
         reps=0
     )
@@ -723,22 +759,26 @@ if __name__ == "__main__":
     print("EXAMPLE 3: H2 Potential Energy Curve with QNG")
     print("=" * 70)
     
-    distances = np.linspace(0.5, 2.5, 10)
+    distances = np.linspace(0.15, 4.0, 10)
     energies = []
     
     for d in distances:
         print(f"\nDistance: {d:.2f} Å")
         
-        vqe_h2 = VQE_H2_PSR_Adam(
-            max_iter=100,
-            learning_rate=0.05,
+        vqe_h2 = VQE_H2_QNG(
+            max_iter=200,
+            learning_rate=0.01,
             store_history=False,
-            reps=1,
+            reps=0,
             distance=d
         )
         
         n_params = (vqe_h2.reps + 1) * 4  # 4 qubits
-        theta_init = np.random.uniform(0, 2*np.pi, n_params)
+        #theta_init = np.random.uniform(0, 2*np.pi, n_params)
+
+        theta_init=np.zeros(n_params)
+        for i in range(n_params):
+            theta_init[i]=np.pi/n_params*i
         
         _, E_opt = vqe_h2.run(initial_params=theta_init)
         energies.append(E_opt)
