@@ -5,6 +5,21 @@
 
 from base_optimizer import *
 
+
+
+class GradientDescent:
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        pass
+
+    def _update(self, gradient: Any) -> Any:
+        """
+        Standard Gradientenabstieg: θ_new = θ_old - η * ∇E
+        """
+        eta = self.step_size()
+        return self.params - eta * gradient
+
 class QuantumNaturalGradient:
 
     def __init__(self, *args, qng_eps: float = 1e-6, **kwargs):

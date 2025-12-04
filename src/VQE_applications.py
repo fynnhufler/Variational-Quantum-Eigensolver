@@ -12,6 +12,7 @@ from systems import *
 
 class VQE_OneQubit_FiniteDiff_Const(
     FiniteDifferenceGradient,
+    GradientDescent,
     ConstantStepSize,
     TrivialAnsatz,
     OneQubitSystem
@@ -76,6 +77,7 @@ class VQE_Ising_PSR_Adam(
 class VQE_Ising_PSR_const(
     ConstantStepSize,
     ParameterShiftGradient,
+    GradientDescent,
     RealAmplitudesAnsatz,
     IsingModel
 ):
