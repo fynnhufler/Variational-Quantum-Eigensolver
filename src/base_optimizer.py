@@ -229,126 +229,6 @@ class SPSAGradient:
         return gradient
 
 
-# ============================================================================
-# FISHER INFORMATION MATRIX
-# ============================================================================
-
-# class FisherInformationMixin:
-#     """
-#     Compute Fisher Information Matrix using parameter shift rule.
-#     This is the quantum geometric tensor for pure states.
-#     """
-#     def __init__(self, *args, fisher_reg: float = 1e-6, **kwargs):
-#         self.fisher_reg = fisher_reg
-#         super().__init__(*args, **kwargs)
-    
-#     def compute_fisher_information(self) -> np.ndarray:
-#         """
-#         Compute Fisher Information Matrix.
-#         F_ij = Re[⟨∂_i ψ|∂_j ψ⟩ - ⟨∂_i ψ|ψ⟩⟨ψ|∂_j ψ⟩]
-#         """
-#         n = self.params_dim
-#         F = np.zeros((n, n))
-        
-#         for i in range(n):
-#             for j in range(i, n):
-#                 if i == j:
-#                     # Diagonal: shift only parameter i
-#                     params_plus = self.params.copy()
-#                     params_plus[i] += np.pi/2
-                    
-#                     params_minus = self.params.copy()
-#                     params_minus[i] -= np.pi/2
-                    
-#                     state_plus = self.get_state(params_plus)
-#                     state_minus = self.get_state(params_minus)
-                    
-#                     overlap = np.vdot(state_plus.data, state_minus.data)
-#                     F[i, i] = 0.5 * (1.0 - np.abs(overlap)**2)
-#                 else:
-#                     # Off-diagonal: use 4-point formula
-#                     params_pp = self.params.copy()
-#                     params_pp[i] += np.pi/2
-#                     params_pp[j] += np.pi/2
-                    
-#                     params_mm = self.params.copy()
-#                     params_mm[i] -= np.pi/2
-#                     params_mm[j] -= np.pi/2
-                    
-#                     params_pm = self.params.copy()
-#                     params_pm[i] += np.pi/2
-#                     params_pm[j] -= np.pi/2
-                    
-#                     params_mp = self.params.copy()
-#                     params_mp[i] -= np.pi/2
-#                     params_mp[j] += np.pi/2
-                    
-#                     state_pp = self.get_state(params_pp)
-#                     state_mm = self.get_state(params_mm)
-#                     state_pm = self.get_state(params_pm)
-#                     state_mp = self.get_state(params_mp)
-                    
-#                     overlap_pp_mm = np.vdot(state_pp.data, state_mm.data)
-#                     overlap_pm_mp = np.vdot(state_pm.data, state_mp.data)
-                    
-#                     F[i, j] = 0.5 * (1.0 - np.real(overlap_pp_mm * np.conj(overlap_pm_mp)))
-#                     F[j, i] = F[i, j]  # Symmetric
-        
-#         # Add regularization
-#         F += self.fisher_reg * np.eye(n)
-        
-#         return F if n > 1 else F[0, 0]
-
-
-# ============================================================================
-# QUANTUM NATURAL GRADIENT
-# ============================================================================
-
-# class QuantumNaturalGradient:
-#     """
-#     Update using natural gradient: θ_new = θ_old - η * F^(-1) * ∇E
-#     Includes numerical stability checks.
-#     """
-#     def __init__(self, *args, max_gradient_norm: float = 1.0, **kwargs):
-#         self.max_gradient_norm = max_gradient_norm
-#         super().__init__(*args, **kwargs)
-    
-#     def _update(self, gradient: np.ndarray) -> np.ndarray:
-#         eta = self.step_size()
-#         F = self.compute_fisher_information()
-        
-#         if np.isscalar(F):
-#             #Scalar case (single parameter)
-#             if F < 1e-10:
-#                 natural_gradient = gradient
-#             else:
-#                 natural_gradient = gradient / F
-#         else:
-#             #Matrix case - check condition number
-#             cond = np.linalg.cond(F)
-#             if cond > 1e12:
-#                 #Too ill-conditioned, use regular gradient
-#                 natural_gradient = gradient
-#             else:
-#                 #Use pseudoinverse for stability
-#                 try:
-#                     natural_gradient = np.linalg.pinv(F, rcond=1e-10) @ gradient
-#                 except:
-#                     natural_gradient = gradient
-        
-#         #Clip gradient norm
-#         if np.isscalar(natural_gradient):
-#             grad_norm = abs(natural_gradient)
-#             if grad_norm > self.max_gradient_norm:
-#                 natural_gradient = self.max_gradient_norm * np.sign(natural_gradient)
-#         else:
-#             grad_norm = np.linalg.norm(natural_gradient)
-#             if grad_norm > self.max_gradient_norm:
-#                 natural_gradient = natural_gradient * (self.max_gradient_norm / grad_norm)
-        
-#         return self.params - eta * natural_gradient
-
-
 
 
 class QuantumNaturalGradient:
@@ -376,8 +256,6 @@ class QuantumNaturalGradient:
                 state_i_state_j=np.vdot(state_i, state_j)
                 state_state_j=np.vdot(state, state_j)
                 g[i][j]=np.real(state_i_state_j-state_i_state*state_state_j)
-#nebendiag reichen
-#plus minus eps
         return np.linalg.pinv(g)
         
     
@@ -662,8 +540,8 @@ class VQE_Ising_QNG(
     pass
 
 
-class VQE_Ising_SPSA_Adam(
-    SPSAGradient,
+class VQE_Ising_PSR_Adam(
+    ParameterShiftGradient,
     Adam,
     RealAmplitudesAnsatz,
     IsingModel
@@ -671,8 +549,54 @@ class VQE_Ising_SPSA_Adam(
     """Ising model VQE with SPSA (efficient for high dimensions) and Adam"""
     pass
 
+class VQE_Ising_PSR_const(
+    ConstantStepSize,
+    ParameterShiftGradient,
+    RealAmplitudesAnsatz,
+    IsingModel
+):
+    """VQE_Ising_PSR_const"""
+    pass
 
-#H-Molecule
+
+#------------------------------------------------gradient-------------------------
+
+class VQE_Ising_QNG_finit(
+    FiniteDifferenceGradient,
+    QuantumNaturalGradient,
+    DecayingStepSize,
+    RealAmplitudesAnsatz,
+    IsingModel
+):
+    """Ising model VQE with Quantum Natural Gradient Descent"""
+    pass
+
+
+class VQE_Ising_QNG_spsa(
+    SPSAGradient,
+    QuantumNaturalGradient,
+    DecayingStepSize,
+    RealAmplitudesAnsatz,
+    IsingModel
+):
+    """Ising model VQE with SPSA (efficient for high dimensions) and Adam"""
+    pass
+
+class VQE_Ising_QNG_psr(
+    ParameterShiftGradient,
+    QuantumNaturalGradient,
+    DecayingStepSize,
+    RealAmplitudesAnsatz,
+    IsingModel
+):
+    """VQE_Ising_PSR_const"""
+    pass
+
+
+
+
+
+# H-Molecule
 
 class VQE_H2_QNG(
     ParameterShiftGradient,
@@ -683,6 +607,17 @@ class VQE_H2_QNG(
 ):
     """H2 molecule VQE with Quantum Natural Gradient Descent"""
     pass
+
+class VQE_H2_QNG_comp(
+    SPSAGradient,
+    QuantumNaturalGradient,
+    DecayingStepSize,
+    ComplexAnsatz,
+    HydrogenMolecule
+):
+    """H2 molecule VQE with Quantum Natural Gradient Descent"""
+    pass
+
 
 
 class VQE_H2_PSR_Adam(
