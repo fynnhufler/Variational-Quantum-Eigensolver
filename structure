@@ -1,0 +1,36 @@
+BaseOptimizer (ABC)
+│
+├── OneQubitSystem
+│
+├── n_dim_ising
+│
+├── hydrogen (h_2)
+│                                           system
+│   --------------------------------------
+│
+├── triv_ansatz
+│
+├── real_ansatz
+│   
+├── complex_ansatz
+│                                           ansatz
+│-----------------------------------------
+│
+├── FiniteDifferenceGradient
+│
+├── PSR_Gradient
+│
+├── SPSA_Gradient
+│                                           gradient
+│   --------------------------------------
+│
+├── ConstantStepSize
+│
+├── ConstantStepSize
+│
+├── DecayingStepSize
+│
+├── Adam
+│
+└── qng_finite_diff
+                                            optimization
