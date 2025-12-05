@@ -26,8 +26,6 @@ BaseOptimizer (ABC)
 │
 ├── ConstantStepSize
 │
-├── ConstantStepSize
-│
 ├── DecayingStepSize
 │
 ├── Adam
