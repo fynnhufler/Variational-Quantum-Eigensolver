@@ -59,6 +59,7 @@ class BaseOptimizer(ABC):
     def _update(self, gradient: Any) -> Any:
         """
         Compute update
+        Must be implemented in subclasses.
         """
         pass
     
@@ -69,8 +70,6 @@ class BaseOptimizer(ABC):
     def get_state(self, params: np.ndarray) -> Statevector:
         """Get quantum state for given parameters"""
         return self.initial_state.evolve(self.ansatz(params))
-    
-
     
     def _store_iteration(self):
         """Store history if enabled"""
@@ -138,28 +137,3 @@ class BaseOptimizer(ABC):
         
         plt.tight_layout()
         plt.show()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    #doc strings schreiben 
-    #gradient descent auslagern
-    #ordner structur anlegen                check
-    #code durchgehen und schöner machen
-    #plots entfernen in main                check
-    #optional demo schön machen
-    #nur wichtige VQE behalten
