@@ -50,7 +50,7 @@ The framework uses a **mixin-based architecture** where components are combined 
 
 - **Modular design**: Mix and match system, ansatz, gradient, and optimizer
 - **Quantum Natural Gradient**: Advanced optimization leveraging quantum geometry
-- **Molecular chemistry**: Built-in support for H₂ using PySCF and Jordan-Wigner mapping
+- **Molecular chemistry**: Built-in support for H2 using PySCF and Jordan-Wigner mapping
 - **Extensible**: Easy to add new systems, ansätze, or optimization strategies
 
 ---
