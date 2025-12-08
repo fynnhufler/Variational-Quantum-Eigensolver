@@ -15,25 +15,34 @@ class GradientDescent:
 
     def _update(self, gradient: Any) -> Any:
         """
-        Standard Gradientenabstieg: θ_new = θ_old - η * ∇E
+        Standard gradient-descent optimizer: θ_new = θ_old - η * ∇E
         """
         eta = self.step_size()
         return self.params - eta * gradient
 
 class QuantumNaturalGradient:
-
+    """
+    Quantum Natural Gradient optimizer (QNG).
+    Uses the Fubini-Study metric (quantum Fisher information) to rescale gradients based on the geometry of parameter space.
+    """
     def __init__(self, *args, qng_eps: float = 1e-6, **kwargs):
         self.qng_eps = qng_eps
         super().__init__(*args, **kwargs)
 
     def _update(self, gradient: Any) -> Any:
         """
-        Standard Gradientenabstieg: θ_new = θ_old - η * ∇E
+        Apply natural gradient update using Fisher information metric.
+            Update rule:
+        θ_new = θ_old - η * F^{-1} ∇E
+        where F is the Fisher information matrix approximated numerically.
         """
         fsm = self.fsm()
         return self.params - self.step_size()*fsm @ gradient
     
     def fsm(self):
+        """
+        Compute Fisher information matrix (F) and return its pseudoinverse.
+        """
         g = np.zeros((self.params_dim,self.params_dim))
         Id=np.identity(self.params_dim, dtype=float)
         state=self.state.data
@@ -93,11 +102,9 @@ class Adam:
         self.t = 0  #Adam iteration counter
     
     def _update(self, gradient: np.ndarray) -> np.ndarray:
-        #Lazy initialization
         if self.m is None or self.v is None:
             self.m = np.zeros_like(self.params, dtype=float)
             self.v = np.zeros_like(self.params, dtype=float)
-        
         self.t += 1
         
         #Update biased first and second moment estimates

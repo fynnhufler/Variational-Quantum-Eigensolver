@@ -7,7 +7,9 @@ from base_optimizer import *
 
 
 class OneQubitSystem(BaseOptimizer):
-    """Single qubit system with H = -X - Z"""
+    """
+    Single qubit system 
+    """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.dim = 1
@@ -15,19 +17,20 @@ class OneQubitSystem(BaseOptimizer):
         self._setup_initial_state()
     
     def _setup_hamiltonian(self):
+        """Construct the Hamiltonian for a single-qubit system with H = -X - Z"""
         X = np.array([[0, 1], [1, 0]], dtype=complex)
         Z = np.array([[1, 0], [0, -1]], dtype=complex)
         self.hamilton = Operator(-X - Z)
     
     def _setup_initial_state(self):
+        """Initialize the system state to |0...0> as a Statevector"""
         qc = QuantumCircuit(1)
         self.initial_state = Statevector.from_instruction(qc)
 
 
 class IsingModel(BaseOptimizer):
     """
-    n-dimensional Ising model.
-    H = -Σ_i h_i Z_i - Σ_{i<j} J_{ij} Z_i Z_j
+    n-dimensional Ising model
     """
     def __init__(self, J: np.ndarray, h: np.ndarray, **kwargs):
         super().__init__(**kwargs)
@@ -36,6 +39,7 @@ class IsingModel(BaseOptimizer):
         self._setup_initial_state()
     
     def _setup_hamiltonian(self, J: np.ndarray, h: np.ndarray):
+        """Construct the Ising Hamiltonian H = -Σ_i h_i Z_i - Σ_{i<j} J_{ij} Z_i Z_j."""
         hamilton = np.zeros((2**self.dim, 2**self.dim), dtype=complex)
         
         for i in range(self.dim):
@@ -46,6 +50,7 @@ class IsingModel(BaseOptimizer):
         self.hamilton = Operator(hamilton)
     
     def _setup_initial_state(self):
+        """Initialize the system state to |0...0> as a Statevector."""
         self.initial_state = Statevector.from_instruction(QuantumCircuit(self.dim))
     
     def _pauli_product(self, i: int, j: int) -> np.ndarray:
@@ -76,7 +81,7 @@ class HydrogenMolecule(BaseOptimizer):
         self._setup_initial_state()
     
     def _setup_hamiltonian(self, distance: float):
-        #Run PySCF
+        """Build the H₂ molecular Hamiltonian using PySCF and Jordan–Wigner mapping."""
         driver = PySCFDriver(
             atom=f"H 0 0 {-distance/2}; H 0 0 {distance/2}",
             basis="sto3g",
@@ -99,7 +104,7 @@ class HydrogenMolecule(BaseOptimizer):
         self.hamilton = Operator(H_el + enuc * np.eye(H_el.shape[0], dtype=complex))
     
     def _setup_initial_state(self):
-        #Use Hartree-Fock initial state
+        """Initialize the system to Hartree-Fock state"""
         hf_circuit = HartreeFock(
             num_spatial_orbitals=2,
             num_particles=(1, 1),

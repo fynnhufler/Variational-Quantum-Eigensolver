@@ -7,7 +7,7 @@ from base_optimizer import *
 
 class FiniteDifferenceGradient:
     """
-    Mixin for numerical gradient computation via finite differences.
+    numerical gradient computation via finite differences.
     """
     def __init__(self, *args, gradient_eps: float = 1e-6, **kwargs):
         self.gradient_eps = gradient_eps
@@ -31,7 +31,7 @@ class FiniteDifferenceGradient:
 class ParameterShiftGradient:
     """
     Exact gradient using parameter shift rule.
-    For quantum circuits, this is exact (not an approximation).
+    For certain quantum circuits, this is exact (not an approximation).
     """
     def __init__(self, *args, shifts=None, **kwargs):
         self.shifts = shifts if shifts is not None else [np.pi/2]

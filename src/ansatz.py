@@ -6,7 +6,7 @@
 from base_optimizer import *
 
 class TrivialAnsatz:
-    """Simple single-qubit rotations: U = ⊗_i Ry(θ_i)"""
+    """Single-qubit Ry rotation ansatz applied independently to each qubit."""
     def ansatz(self, theta: np.ndarray) -> QuantumCircuit:
         qc = QuantumCircuit(self.dim)
         for i in range(self.dim):
@@ -15,7 +15,7 @@ class TrivialAnsatz:
 
 
 class RealAmplitudesAnsatz:
-    """Hardware-efficient ansatz with real amplitudes"""
+    """Hardware-efficient ansatz based on Qiskit's RealAmplitudes template."""
     def __init__(self, *args, reps: int = 1, **kwargs):
         super().__init__(*args, **kwargs)
         self.reps = reps
@@ -32,7 +32,7 @@ class RealAmplitudesAnsatz:
 
 
 class ComplexAnsatz:
-    """Hardware-efficient ansatz with complex amplitudes (EfficientSU2)"""
+    """Hardware-efficient ansatz ased on Qiskit's EfficientSU2 template."""
     def __init__(self, *args, reps: int = 1, **kwargs):
         super().__init__(*args, **kwargs)
         self.reps = reps
