@@ -25,10 +25,10 @@ A modular, extensible Python framework for implementing Variational Quantum Eige
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Physics Background](#physics-background)
-- [Usage Examples](#usage-examples)
 - [API Reference](#api-reference)
 - [Project Structure](#project-structure)
 - [Performance](#performance)
+- [Usage Examples](#usage-examples)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
 
@@ -381,132 +381,6 @@ where $\Delta_k$ is a random perturbation vector (typically $\pm 1$ in each comp
 
 ---
 
-## Usage Examples
-
-### Comparing Gradient Methods
-
-```python
-from VQE_applications import (
-    VQE_Ising_QNG_finit,  # Finite differences
-    VQE_Ising_QNG_psr,    # Parameter shift
-    VQE_Ising_QNG_spsa    # SPSA
-)
-
-# Setup Ising model
-n_qubits = 4
-J = np.zeros((n_qubits, n_qubits))
-J[0,1] = J[1,2] = J[2,3] = 1.0
-h = 0.5 * np.ones(n_qubits)
-
-gradient_methods = {
-    'Finite Diff': VQE_Ising_QNG_finit,
-    'PSR': VQE_Ising_QNG_psr,
-    'SPSA': VQE_Ising_QNG_spsa
-}
-
-results = {}
-for name, VQE_class in gradient_methods.items():
-    vqe = VQE_class(
-        max_iter=200,
-        learning_rate=0.01,
-        reps=1,
-        J=J, h=h,
-        store_history=True
-    )
-    
-    theta_init = np.random.uniform(0, 0.5, 8)
-    theta_opt, E_opt = vqe.run(theta_init)
-    
-    results[name] = {
-        'energy': E_opt,
-        'history': vqe.history_energy
-    }
-
-# Plot comparison
-import matplotlib.pyplot as plt
-
-fig, ax = plt.subplots(figsize=(10, 6))
-for name, data in results.items():
-    ax.plot(data['history'], label=name, linewidth=2)
-
-ax.set_xlabel('Iteration')
-ax.set_ylabel('Energy')
-ax.legend()
-ax.grid(True, alpha=0.3)
-plt.show()
-```
-
-### Energy Landscape Visualization
-
-```python
-import numpy as np
-import matplotlib.pyplot as plt
-from VQE_applications import VQE_OneQubit_PSR_Adam
-
-vqe = VQE_OneQubit_PSR_Adam(max_iter=1, store_history=False)
-
-# Scan parameter space
-theta_range = np.linspace(0, 2*np.pi, 100)
-energies = []
-
-for theta in theta_range:
-    vqe.params = np.array([theta])
-    vqe.state = vqe.get_state(vqe.params)
-    E = vqe.compute_expectation_value(vqe.state, vqe.hamilton)
-    energies.append(E)
-
-# Plot landscape
-plt.figure(figsize=(10, 6))
-plt.plot(theta_range, energies, linewidth=2.5)
-plt.axhline(y=-np.sqrt(2), color='r', linestyle='--', 
-            label=f'Ground state: {-np.sqrt(2):.4f}')
-plt.xlabel('Parameter θ', fontsize=12)
-plt.ylabel('Energy E(θ)', fontsize=12)
-plt.title('Single Qubit Energy Landscape', fontsize=14, fontweight='bold')
-plt.legend()
-plt.grid(True, alpha=0.3)
-plt.show()
-```
-
-### Convergence Study
-
-```python
-import numpy as np
-from VQE_applications import VQE_Ising_PSR_const
-
-# Study convergence from different initial conditions
-n_trials = 20
-n_qubits = 3
-
-J = np.zeros((n_qubits, n_qubits))
-J[0,1] = J[1,2] = 1.0
-h = 0.5 * np.ones(n_qubits)
-
-final_energies = []
-iterations_to_converge = []
-
-for trial in range(n_trials):
-    vqe = VQE_Ising_PSR_const(
-        max_iter=200,
-        learning_rate=0.05,
-        reps=1,
-        J=J, h=h,
-        store_history=True
-    )
-    
-    # Random initialization
-    theta_init = np.random.uniform(0, 2*np.pi, 6)
-    theta_opt, E_opt = vqe.run(theta_init)
-    
-    final_energies.append(E_opt)
-    iterations_to_converge.append(len(vqe.history_energy))
-
-print(f"Mean final energy: {np.mean(final_energies):.6f}")
-print(f"Std deviation: {np.std(final_energies):.6f}")
-print(f"Mean iterations: {np.mean(iterations_to_converge):.1f}")
-```
-
----
 
 ## API Reference
 
@@ -589,7 +463,7 @@ $$H = -\sum_i h_i Z_i - \sum_{i<j} J_{ij} Z_i Z_j$$
 
 #### `HydrogenMolecule(distance, **kwargs)`
 
-H₂ molecule electronic structure.
+H2 molecule electronic structure.
 
 **Parameters:**
 - `distance` (float): H-H bond distance in Ångströms
@@ -824,6 +698,131 @@ Variational-Quantum-Eigensolver/
 - **Disable history**: Set `store_history=False` for long runs
 
 ---
+
+## Usage Examples
+
+### Comparing Gradient Methods
+
+```python
+from VQE_applications import (
+    VQE_Ising_QNG_finit,  # Finite differences
+    VQE_Ising_QNG_psr,    # Parameter shift
+    VQE_Ising_QNG_spsa    # SPSA
+)
+
+# Setup Ising model
+n_qubits = 4
+J = np.zeros((n_qubits, n_qubits))
+J[0,1] = J[1,2] = J[2,3] = 1.0
+h = 0.5 * np.ones(n_qubits)
+
+gradient_methods = {
+    'Finite Diff': VQE_Ising_QNG_finit,
+    'PSR': VQE_Ising_QNG_psr,
+    'SPSA': VQE_Ising_QNG_spsa
+}
+
+results = {}
+for name, VQE_class in gradient_methods.items():
+    vqe = VQE_class(
+        max_iter=200,
+        learning_rate=0.01,
+        reps=1,
+        J=J, h=h,
+        store_history=True
+    )
+    
+    theta_init = np.random.uniform(0, 0.5, 8)
+    theta_opt, E_opt = vqe.run(theta_init)
+    
+    results[name] = {
+        'energy': E_opt,
+        'history': vqe.history_energy
+    }
+
+# Plot comparison
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(10, 6))
+for name, data in results.items():
+    ax.plot(data['history'], label=name, linewidth=2)
+
+ax.set_xlabel('Iteration')
+ax.set_ylabel('Energy')
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.show()
+```
+
+### Energy Landscape Visualization
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from VQE_applications import VQE_OneQubit_PSR_Adam
+
+vqe = VQE_OneQubit_PSR_Adam(max_iter=1, store_history=False)
+
+# Scan parameter space
+theta_range = np.linspace(0, 2*np.pi, 100)
+energies = []
+
+for theta in theta_range:
+    vqe.params = np.array([theta])
+    vqe.state = vqe.get_state(vqe.params)
+    E = vqe.compute_expectation_value(vqe.state, vqe.hamilton)
+    energies.append(E)
+
+# Plot landscape
+plt.figure(figsize=(10, 6))
+plt.plot(theta_range, energies, linewidth=2.5)
+plt.axhline(y=-np.sqrt(2), color='r', linestyle='--', 
+            label=f'Ground state: {-np.sqrt(2):.4f}')
+plt.xlabel('Parameter θ', fontsize=12)
+plt.ylabel('Energy E(θ)', fontsize=12)
+plt.title('Single Qubit Energy Landscape', fontsize=14, fontweight='bold')
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.show()
+```
+
+### Convergence Study
+
+```python
+import numpy as np
+from VQE_applications import VQE_Ising_PSR_const
+
+# Study convergence from different initial conditions
+n_trials = 20
+n_qubits = 3
+
+J = np.zeros((n_qubits, n_qubits))
+J[0,1] = J[1,2] = 1.0
+h = 0.5 * np.ones(n_qubits)
+
+final_energies = []
+iterations_to_converge = []
+
+for trial in range(n_trials):
+    vqe = VQE_Ising_PSR_const(
+        max_iter=200,
+        learning_rate=0.05,
+        reps=1,
+        J=J, h=h,
+        store_history=True
+    )
+    
+    # Random initialization
+    theta_init = np.random.uniform(0, 2*np.pi, 6)
+    theta_opt, E_opt = vqe.run(theta_init)
+    
+    final_energies.append(E_opt)
+    iterations_to_converge.append(len(vqe.history_energy))
+
+print(f"Mean final energy: {np.mean(final_energies):.6f}")
+print(f"Std deviation: {np.std(final_energies):.6f}")
+print(f"Mean iterations: {np.mean(iterations_to_converge):.1f}")
+```
 
 ### Validation
 
