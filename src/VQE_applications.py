@@ -20,6 +20,16 @@ class VQE_OneQubit_FiniteDiff_Const(
     """Single qubit VQE with finite differences and constant step size"""
     pass
 
+class VQE_OneQubit_FiniteDiff_Const_Real(
+    FiniteDifferenceGradient,
+    GradientDescent,
+    ConstantStepSize,
+    RealAmplitudesAnsatz,
+    OneQubitSystem
+):
+    """Single qubit VQE with finite differences, RealAmplitudes ansatz"""
+    pass
+
 
 class VQE_OneQubit_PSR_Adam(
     ParameterShiftGradient,
